@@ -14,6 +14,14 @@ appPath     := A_Args[2]
 POLL_INTERVAL_MS := 5000  ; Monitoring interval in milliseconds
 STARTUP_TIMEOUT  := 6     ; Startup timeout in seconds
 
+; Custom graceful close button configuration (works with any desktop application)
+CUSTOM_CLOSE_METHOD := "control"        ; Options: "control" or "coordinates"
+CUSTOM_CLOSE_CONTROL := "Button3"       ; ClassNN (Window Spy) of your custom close/exit button
+; OR use coordinates if control method doesn't work:
+; CUSTOM_CLOSE_METHOD := "coordinates"
+; CUSTOM_CLOSE_X := 850  ; Position of your close button
+; CUSTOM_CLOSE_Y := 65   ; Position of your close button
+
 ; Precise window identification - handle both executables and scripts
 SplitPath(appPath, &exeName, , &ext)
 if (StrLower(ext) = "exe") {
@@ -55,7 +63,7 @@ WinSetStyle("-0x80000", target) ; WS_SYSMENU (removes close button and system me
 #HotIf
 
 ; --- Monitoring RDP events (24/40 by default) ---
-CloseOnEventIds := [24, 40]   ; Adjust here (e.g., add 23 for logoff, 25 for reconnect)
+CloseOnEventIds := [23, 24, 40]   ; Adjust here if needed (e.g., remove 23 for logoff, add 25 for reconnect)
 last := GetLatestRdpEventRecord(CloseOnEventIds) ; [RecordId, EventId]
 lastId := last[1]
 
@@ -63,6 +71,43 @@ SetTimer(CheckSessionEvents, POLL_INTERVAL_MS)
 return  ; End of auto-execute section
 
 ; ------------ FUNCTIONS ------------
+
+; Universal graceful close for any desktop application with custom close buttons
+TryCustomGracefulClose(target, timeoutSec := 3) {
+    global CUSTOM_CLOSE_METHOD, CUSTOM_CLOSE_X, CUSTOM_CLOSE_Y, CUSTOM_CLOSE_CONTROL
+
+    if !WinExist(target) {
+        return false
+    }
+    
+    Log("Attempting custom graceful close using method: " . CUSTOM_CLOSE_METHOD)
+    WinActivate(target)
+    Sleep(200)  ; Ensure window is active
+    
+    ; Use configured method for graceful close
+    switch CUSTOM_CLOSE_METHOD {
+        case "control":
+            try {
+                ControlClick(CUSTOM_CLOSE_CONTROL, target)
+                Log("Clicked custom close button via control: " . CUSTOM_CLOSE_CONTROL)
+                if WinWaitClose(target, , timeoutSec) {
+                    return true
+                }
+            }
+        
+        case "coordinates":
+            try {
+                Click(CUSTOM_CLOSE_X, CUSTOM_CLOSE_Y)
+                Log("Clicked custom close button at coordinates (" . CUSTOM_CLOSE_X . "," . CUSTOM_CLOSE_Y . ")")
+                if WinWaitClose(target, , timeoutSec) {
+                    return true
+                }
+            }
+    }
+    
+    Log("Custom graceful close failed, will use standard closing methods")
+    return false
+}
 
 ; Logging function for auditing and support
 Log(msg) {
@@ -119,8 +164,15 @@ CheckSessionEvents(*) {
     }
 }
 
-; Graceful → forced: WinClose → SC_CLOSE → Alt+F4 → kill
+; Graceful → forced: App Stop → WinClose → SC_CLOSE → Alt+F4 → kill
 ForceCloseWindow(target, graceSec := 3) {
+    ; 0) Try custom graceful close first
+    if WinExist(target) {
+        if TryCustomGracefulClose(target, graceSec) {
+            return true  ; Successfully closed via custom method
+        }
+    }
+    
     ; 1) Gentle close
     if WinExist(target) {
         WinClose(target)
