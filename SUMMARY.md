@@ -1,3 +1,3 @@
 # Table of contents
 
-* [Lab Control](README.md)
+* [Lab App Control](README.md)
