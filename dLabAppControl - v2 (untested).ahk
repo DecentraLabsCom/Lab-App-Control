@@ -3,24 +3,35 @@
 ; ProcessSetPriority "High"
 
 if (A_Args.Length < 2) {
-    MsgBox "Use: ControlApp.ahk [window ahk_class] [C:\path\to\app.exe]"
+    MsgBox "Use: ControlApp.ahk [window_ahk_class] [C:\path\to\app.exe] [optional: close_control_ClassNN or X Y coordinates]`n`nExamples:`n- ControlApp.ahk ""Notepad"" ""notepad.exe""`n- ControlApp.ahk ""LVWindow"" ""myVI.exe"" ""Boolean3""`n- ControlApp.ahk ""MyAppClass"" ""C:\myapp.exe"" 850 65`nWith 3rd parameter: Clicks specified control to close app`nWith 3rd+4th parameters: Clicks at X,Y coordinates to close app"
     ExitApp
 }
 
 windowClass := A_Args[1]
 appPath     := A_Args[2]
+customCloseControl := (A_Args.Length == 3) ? A_Args[3] : ""
+customCloseX := (A_Args.Length == 4) ? Integer(A_Args[3]) : 0
+customCloseY := (A_Args.Length == 4) ? Integer(A_Args[4]) : 0
 
 ; Configuration constants
 POLL_INTERVAL_MS := 5000  ; Monitoring interval in milliseconds
 STARTUP_TIMEOUT  := 6     ; Startup timeout in seconds
 
 ; Custom graceful close button configuration (works with any desktop application)
-CUSTOM_CLOSE_METHOD := "control"        ; Options: "control" or "coordinates"
-CUSTOM_CLOSE_CONTROL := "Button3"       ; ClassNN (Window Spy) of your custom close/exit button
-; OR use coordinates if control method doesn't work:
-; CUSTOM_CLOSE_METHOD := "coordinates"
-; CUSTOM_CLOSE_X := 850  ; Position of your close button
-; CUSTOM_CLOSE_Y := 65   ; Position of your close button
+; Determine method based on parameters provided
+if (customCloseControl != "") {
+    ; 3rd parameter provided - use control method
+    CUSTOM_CLOSE_METHOD := "control"
+    Log("Using custom close control from parameter: " . customCloseControl)
+} else if (A_Args.Length == 4 && customCloseX > 0 && customCloseY > 0) {
+    ; 3rd and 4th parameters provided - use coordinates method
+    CUSTOM_CLOSE_METHOD := "coordinates"
+    Log("Using custom close coordinates from parameters: " . customCloseX . ", " . customCloseY)
+} else {
+    ; No custom close method specified
+    CUSTOM_CLOSE_METHOD := "none"
+    Log("No custom close method specified - will use standard cascade")
+}
 
 ; Precise window identification - handle both executables and scripts
 SplitPath(appPath, &exeName, , &ext)
@@ -53,7 +64,7 @@ if !WinExist(target) {
 WinActivate(target)
 WinMaximize(target)
 
-; Remove minimize and close (keep title bar)
+; Remove minimize and close buttons (but keep title bar)
 WinSetStyle("-0x20000", target) ; WS_MINIMIZEBOX
 WinSetStyle("-0x80000", target) ; WS_SYSMENU (removes close button and system menu)
 
@@ -63,18 +74,19 @@ WinSetStyle("-0x80000", target) ; WS_SYSMENU (removes close button and system me
 #HotIf
 
 ; --- Monitoring RDP events (24/40 by default) ---
-CloseOnEventIds := [23, 24, 40]   ; Adjust here if needed (e.g., remove 23 for logoff, add 25 for reconnect)
+CloseOnEventIds := [23, 24, 40]   ; Adjust here if needed (e.g., remove 23 for no logoff, add 25 for reconnect)
 last := GetLatestRdpEventRecord(CloseOnEventIds) ; [RecordId, EventId]
 lastId := last[1]
 
 SetTimer(CheckSessionEvents, POLL_INTERVAL_MS)
 return  ; End of auto-execute section
 
+
 ; ------------ FUNCTIONS ------------
 
 ; Universal graceful close for any desktop application with custom close buttons
 TryCustomGracefulClose(target, timeoutSec := 3) {
-    global CUSTOM_CLOSE_METHOD, CUSTOM_CLOSE_X, CUSTOM_CLOSE_Y, CUSTOM_CLOSE_CONTROL
+    global CUSTOM_CLOSE_METHOD, customCloseControl, customCloseX, customCloseY
 
     if !WinExist(target) {
         return false
@@ -88,8 +100,8 @@ TryCustomGracefulClose(target, timeoutSec := 3) {
     switch CUSTOM_CLOSE_METHOD {
         case "control":
             try {
-                ControlClick(CUSTOM_CLOSE_CONTROL, target)
-                Log("Clicked custom close button via control: " . CUSTOM_CLOSE_CONTROL)
+                ControlClick(customCloseControl, target)
+                Log("Clicked custom close button via control: " . customCloseControl)
                 if WinWaitClose(target, , timeoutSec) {
                     return true
                 }
@@ -97,8 +109,8 @@ TryCustomGracefulClose(target, timeoutSec := 3) {
         
         case "coordinates":
             try {
-                Click(CUSTOM_CLOSE_X, CUSTOM_CLOSE_Y)
-                Log("Clicked custom close button at coordinates (" . CUSTOM_CLOSE_X . "," . CUSTOM_CLOSE_Y . ")")
+                Click(customCloseX, customCloseY)
+                Log("Clicked custom close button at coordinates (" . customCloseX . "," . customCloseY . ")")
                 if WinWaitClose(target, , timeoutSec) {
                     return true
                 }
@@ -166,8 +178,8 @@ CheckSessionEvents(*) {
 
 ; Graceful → forced: App Stop → WinClose → SC_CLOSE → Alt+F4 → kill
 ForceCloseWindow(target, graceSec := 3) {
-    ; 0) Try custom graceful close first
-    if WinExist(target) {
+    ; 0) Try custom graceful close first (only if method is configured)
+    if WinExist(target) && (CUSTOM_CLOSE_METHOD != "none") {
         if TryCustomGracefulClose(target, graceSec) {
             return true  ; Successfully closed via custom method
         }
@@ -179,17 +191,15 @@ ForceCloseWindow(target, graceSec := 3) {
         if WinWaitClose(target, , graceSec)
             return true
     }
-    ; 2) System message (WM_SYSCOMMAND / SC_CLOSE)
+    ; 2) System command message (WM_SYSCOMMAND / SC_CLOSE)
     if WinExist(target) {
-        PostMessage(0x0112, 0xF060, 0, , target)  ; SC_CLOSE
+        PostMessage(0x0112, 0xF060, 0, , target)  ; WM_SYSCOMMAND with SC_CLOSE
         if WinWaitClose(target, , graceSec)
             return true
     }
-    ; 3) Simulate Alt+F4
+    ; 3) Direct close message (WM_CLOSE)
     if WinExist(target) {
-        WinActivate(target)
-        Sleep(100)
-        Send("!{F4}")
+        PostMessage(0x0010, 0, 0, , target)  ; WM_CLOSE
         if WinWaitClose(target, , graceSec)
             return true
     }
