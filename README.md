@@ -13,7 +13,7 @@ This single-instance AHK v2 script that launches your lab control app on connect
 >
 > or
 >
-> `ControlApp.ahk "window ahk_class" "C:\path\to\app.exe"`
+> `dLabAppControl.ahk "window ahk_class" "C:\path\to\app.exe"`
 
 ***
 
@@ -66,8 +66,7 @@ Second option (download and compile script)
 
 * **Polling interval**: currently **5,000 ms** (defined in the script’s timer).
   * To change it, edit the script (or add a third CLI arg and wire it to the timer).
-* **Target selection**: the script matches by **window class** (`ahk_class`). Use AHK’s _Window Spy_ to find it.\
-  If multiple apps share a class, consider modifying the script to target `ahk_exe` or title.
+* **Target selection**: the script matches by **window class** (`ahk_class`). Use AHK’s _Window Spy_ tool (https://github.com/AutoHotkey/AutoHotkey/releases/tag/v2.0.19; also included in this repo for easiness) to find it.
 
 ***
 
