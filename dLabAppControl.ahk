@@ -43,7 +43,7 @@ if (WinExist(window_id)) {
 	WinSetStyle "-0xC00000, window_id" ; Remove close button
 }
 
-SetTimer(CheckSessionEvents, 5000)  ; Check session events every 5 seconds
+SetTimer(CheckSessionEvents, 4000)  ; Check session events every 4 seconds
 
 
 ; FUNCTIONS

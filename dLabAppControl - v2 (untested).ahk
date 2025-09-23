@@ -14,7 +14,7 @@ customCloseX := (A_Args.Length == 4) ? Integer(A_Args[3]) : 0
 customCloseY := (A_Args.Length == 4) ? Integer(A_Args[4]) : 0
 
 ; Configuration constants
-POLL_INTERVAL_MS := 5000  ; Monitoring interval in milliseconds
+POLL_INTERVAL_MS := 2000  ; Monitoring interval in milliseconds
 STARTUP_TIMEOUT  := 6     ; Startup timeout in seconds
 
 ; Custom graceful close button configuration (works with any desktop application)
