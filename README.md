@@ -9,7 +9,11 @@ description: Automatically open and close Windows lab apps based on user session
 This single-instance AHK v2 script that launches your lab control app on connect, keeps it foregrounded, and closes it automatically when the user session changes (e.g., disconnects).
 
 > Usage:\
-> `dLabAppControl.exe "WindowClass""C:\path\to\app.exe"`
+> `dLabAppControl.exe "WindowClass" "C:\path\to\app.exe"`
+>
+> Advanced usage with custom close:\
+> `dLabAppControl.exe "WindowClass" "C:\path\to\app.exe" "Button2"`\
+> `dLabAppControl.exe "LVWindow" "C:\path\to\myVI.exe" 330 484`
 >
 > or
 >
@@ -27,8 +31,14 @@ This single-instance AHK v2 script that launches your lab control app on connect
   Activates and maximizes the window; removes minimize and close buttons to prevent user-initiated closure.
 * **Session-aware auto-shutdown**\
   Automatically closes the app when a **new RDP session event** is detected (e.g., connect/reconnect/disconnect from _Microsoft-Windows-TerminalServices-LocalSessionManager/Operational_, IDs 24/40).
-* **Background monitoring (5 s interval)**\
-  Runs silently, polling every 5 s via a hidden PowerShell call to the Windows event log.
+* **Background monitoring (2 s interval)**\
+  Runs silently, polling every 2 s via native `wevtutil` (faster than PowerShell).
+* **Custom close methods**\
+  Supports graceful app closure via ClassNN controls or X,Y coordinates for LabVIEW/custom apps.
+* **Smart coordinate handling**\
+  Automatically converts WindowSpy CLIENT coordinates to screen coordinates with robust fallbacks.
+* **Enhanced logging**\
+  Detailed logs saved to script directory with configurable verbosity for debugging.
 * **Lightweight integration**\
   No changes to the lab application; acts as a wrapper on the provider’s Windows machine. Optional compile to EXE.
 
@@ -38,11 +48,18 @@ This single-instance AHK v2 script that launches your lab control app on connect
 
 First option (using the executable):
 
-1. Download dLabAppControl.exe.
+1. Download `dLabAppControl.exe`.
 2.  Run with:
 
     ```powershell
-    dLabAppControl.exe "YourWindowClass" "C:\Path\To\LabControl.exe"
+    # Basic usage
+    .\dLabAppControl.exe "YourWindowClass" "C:\Path\To\LabControl.exe"
+    
+    # With custom close button (ClassNN)
+    .\dLabAppControl.exe "Notepad" "C:\Windows\System32\notepad.exe" "Button2"
+    
+    # With custom close coordinates (LabVIEW/custom apps)
+    .\dLabAppControl.exe "LVWindow" "C:\Path\To\myVI.exe" 330 484
     ```
 
 Second option (download and compile script)
@@ -64,7 +81,7 @@ Second option (download and compile script)
 
 ### ⚙️ Configuration
 
-* **Polling interval**: currently **5,000 ms** (defined in the script’s timer).
+* **Polling interval**: currently **2,000 ms** (defined in the script’s timer).
   * To change it, edit the script (or add a third CLI arg and wire it to the timer).
 * **Target selection**: the script matches by **window class** (`ahk_class`). Use AHK’s _Window Spy_ tool (https://github.com/AutoHotkey/AutoHotkey/releases/tag/v2.0.19; also included in this repo for easiness) to find it.
 
