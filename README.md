@@ -1,5 +1,42 @@
 ---
 description: Automatically open and close Windows lab apps based on user sessions.
+
+The script includes several configuration constants that can be modified at the top of the file:
+
+#### **Core Settings**
+* **`POLL_INTERVAL_MS`**: Monitoring interval in milliseconds (default: **2000** = 2 seconds)
+* **`STARTUP_TIMEOUT`**: How long to wait for app window to appear (default: **6** seconds)
+* **`CloseOnEventIds`**: RDP event IDs that trigger app closure (default: `[23, 24, 40]`)
+  - `23`: Logoff, `24`: Disconnect, `40`: Reconnect
+
+#### **Debugging & Testing**
+* **`VERBOSE_LOGGING`**: Enable detailed polling logs (default: `false` for production)
+* **`RDP_CONTEXT`**: Enhanced logging for RDP/Guacamole environments (default: `true`)
+* **`TEST_MODE`**: Test custom close after 5 seconds - **DISABLE IN PRODUCTION** (default: `true`)
+
+#### **Custom Close Methods**
+The script supports three ways to close applications gracefully:
+
+1. **Standard cascade**: `WinClose` → `WM_SYSCOMMAND` → `WM_CLOSE` → `ProcessClose`
+2. **ClassNN control**: For Win32 apps with accessible controls
+   ```powershell
+   dLabAppControl_v2.exe "Notepad" "notepad.exe" "Button2"
+   ```
+3. **Client coordinates**: For LabVIEW/custom apps (use WindowSpy CLIENT coordinates)
+   ```powershell
+   dLabAppControl_v2.exe "LVWindow" "myVI.exe" 330 484
+   ```
+
+#### **Finding Window Information**
+Use the included **WindowSpy.exe** tool to identify:
+- **Window Class** (`ahk_class`): Used as first parameter
+- **ClassNN** controls: For control-based closing
+- **CLIENT coordinates**: Most reliable for custom apps (not Screen or Window coordinates)
+
+#### **Log Files**
+- Location: Same directory as script/exe (`dLabAppControl.log`)
+- Contains: Startup info, coordinate calculations, event detection, close attempts
+- Enable `VERBOSE_LOGGING` for detailed polling information.
 ---
 
 # Lab Control
@@ -76,14 +113,6 @@ Second option (download and compile script)
     ```powershell
     AutoHotkey.exe dLabAppControl.ahk "YourWindowClass" "C:\Path\To\LabControl.exe"
     ```
-
-***
-
-### ⚙️ Configuration
-
-* **Polling interval**: currently **2,000 ms** (defined in the script’s timer).
-  * To change it, edit the script (or add a third CLI arg and wire it to the timer).
-* **Target selection**: the script matches by **window class** (`ahk_class`). Use AHK’s _Window Spy_ tool (https://github.com/AutoHotkey/AutoHotkey/releases/tag/v2.0.19; also included in this repo for easiness) to find it.
 
 ***
 
