@@ -1,5 +1,85 @@
 ---
 description: Automatically open and close Windows lab apps based on user sessions.
+---
+
+# Lab Control
+
+**dLabAppControl** is an AutoHotKey script designed to auto-control the lab app lifecycle based on user session events (RDP) in the DecentraLabs lab provider machine.
+
+This single-instance AHK v2 script that launches your lab control app on connect, keeps it foregrounded, and closes it automatically when the user session changes (e.g., disconnects).
+
+> Usage:\
+> `dLabAppControl_v2.exe "WindowClass" "C:\path\to\app.exe"`
+>
+> Advanced usage with custom close:\
+> `dLabAppControl_v2.exe "WindowClass" "C:\path\to\app.exe" "Button2"`\
+> `dLabAppControl_v2.exe "LVWindow" "C:\path\to\myVI.exe" 330 484`
+>
+> or
+>
+> `"C:\Program Files\AutoHotkey\v2\AutoHotkey.exe" dLabAppControl_v2.ahk "window ahk_class" "C:\path\to\app.exe"`
+
+***
+
+### 🚀 Features
+
+* **Single instance & CLI args**\
+  Runs as a single instance and takes two arguments: target window class and app executable path.
+* **Smart auto-startup**\
+  If the target window isn't found, it launches the lab control app and waits (up to 6 s) for the window.
+* **Window management & hardening**\
+  Activates and maximizes the window; removes minimize and close buttons to prevent user-initiated closure.
+* **Session-aware auto-shutdown**\
+  Automatically closes the app when a **new RDP session event** is detected (e.g., connect/reconnect/disconnect from _Microsoft-Windows-TerminalServices-LocalSessionManager/Operational_, IDs 23/24/40).
+* **Background monitoring (2 s interval)**\
+  Runs silently, polling every 2 s via native `wevtutil` (faster than PowerShell).
+* **Custom close methods**\
+  Supports graceful app closure via ClassNN controls or X,Y coordinates for LabVIEW/custom apps.
+* **Smart coordinate handling**\
+  Automatically converts WindowSpy CLIENT coordinates to screen coordinates with robust fallbacks.
+* **Enhanced logging**\
+  Detailed logs saved to script directory with configurable verbosity for debugging.
+* **Lightweight integration**\
+  No changes to the lab application; acts as a wrapper on the provider's Windows machine. Optional compile to EXE.
+
+***
+
+### 🔧 Installation and Use
+
+First option (using the executable):
+
+1. Download `dLabAppControl_v2.exe`.
+2.  Run with:
+
+    ```powershell
+    # Basic usage
+    .\dLabAppControl_v2.exe "YourWindowClass" "C:\Path\To\LabControl.exe"
+    
+    # With custom close button (ClassNN)
+    .\dLabAppControl_v2.exe "Notepad" "C:\Windows\System32\notepad.exe" "Button2"
+    
+    # With custom close coordinates (LabVIEW/custom apps)
+    .\dLabAppControl_v2.exe "LVWindow" "C:\Path\To\myVI.exe" 330 484
+    ```
+
+Second option (download and compile script)
+
+1. Install AutoHotKey v2.
+2. Place `dLabAppControl_v2.ahk` on the provider machine.
+3.  (Optional) Compile:
+
+    ```powershell
+    "C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe" /in "dLabAppControl_v2.ahk" /out "dLabAppControl_v2.exe"
+    ```
+4.  Run with:
+
+    ```powershell
+    "C:\Program Files\AutoHotkey\v2\AutoHotkey.exe" dLabAppControl_v2.ahk "YourWindowClass" "C:\Path\To\LabControl.exe"
+    ```
+
+***
+
+### ⚙️ Configuration
 
 The script includes several configuration constants that can be modified at the top of the file:
 
@@ -37,82 +117,6 @@ Use the included **WindowSpy.exe** tool to identify:
 - Location: Same directory as script/exe (`dLabAppControl.log`)
 - Contains: Startup info, coordinate calculations, event detection, close attempts
 - Enable `VERBOSE_LOGGING` for detailed polling information.
----
-
-# Lab Control
-
-**dLabAppControl** is an AutoHotKey script designed to auto-control the lab app lifecycle based on user session events (RDP) in the DecentraLabs lab provider machine.
-
-This single-instance AHK v2 script that launches your lab control app on connect, keeps it foregrounded, and closes it automatically when the user session changes (e.g., disconnects).
-
-> Usage:\
-> `dLabAppControl.exe "WindowClass" "C:\path\to\app.exe"`
->
-> Advanced usage with custom close:\
-> `dLabAppControl.exe "WindowClass" "C:\path\to\app.exe" "Button2"`\
-> `dLabAppControl.exe "LVWindow" "C:\path\to\myVI.exe" 330 484`
->
-> or
->
-> `dLabAppControl.ahk "window ahk_class" "C:\path\to\app.exe"`
-
-***
-
-### 🚀 Features
-
-* **Single instance & CLI args**\
-  Runs as a single instance and takes two arguments: target window class and app executable path.
-* **Smart auto-startup**\
-  If the target window isn’t found, it launches the lab control app and waits (up to 5 s) for the window.
-* **Window management & hardening**\
-  Activates and maximizes the window; removes minimize and close buttons to prevent user-initiated closure.
-* **Session-aware auto-shutdown**\
-  Automatically closes the app when a **new RDP session event** is detected (e.g., connect/reconnect/disconnect from _Microsoft-Windows-TerminalServices-LocalSessionManager/Operational_, IDs 24/40).
-* **Background monitoring (2 s interval)**\
-  Runs silently, polling every 2 s via native `wevtutil` (faster than PowerShell).
-* **Custom close methods**\
-  Supports graceful app closure via ClassNN controls or X,Y coordinates for LabVIEW/custom apps.
-* **Smart coordinate handling**\
-  Automatically converts WindowSpy CLIENT coordinates to screen coordinates with robust fallbacks.
-* **Enhanced logging**\
-  Detailed logs saved to script directory with configurable verbosity for debugging.
-* **Lightweight integration**\
-  No changes to the lab application; acts as a wrapper on the provider’s Windows machine. Optional compile to EXE.
-
-***
-
-### 🔧 Installation and Use
-
-First option (using the executable):
-
-1. Download `dLabAppControl.exe`.
-2.  Run with:
-
-    ```powershell
-    # Basic usage
-    .\dLabAppControl.exe "YourWindowClass" "C:\Path\To\LabControl.exe"
-    
-    # With custom close button (ClassNN)
-    .\dLabAppControl.exe "Notepad" "C:\Windows\System32\notepad.exe" "Button2"
-    
-    # With custom close coordinates (LabVIEW/custom apps)
-    .\dLabAppControl.exe "LVWindow" "C:\Path\To\myVI.exe" 330 484
-    ```
-
-Second option (download and compile script)
-
-1. Install AutoHotKey v2.
-2. Place `dLabAppControl.ahk` on the provider machine.
-3.  (Optional) Compile:
-
-    ```powershell
-    Ahk2Exe.exe /in dLabAppControl.ahk /out dLabAppControl.exe
-    ```
-4.  Run with:
-
-    ```powershell
-    AutoHotkey.exe dLabAppControl.ahk "YourWindowClass" "C:\Path\To\LabControl.exe"
-    ```
 
 ***
 
