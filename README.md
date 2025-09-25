@@ -113,6 +113,8 @@ Use the included **WindowSpy.exe** tool to identify:
 - **ClassNN** controls: For control-based closing
 - **CLIENT coordinates**: Most reliable for custom apps (not Screen or Window coordinates)
 
+> **Note**: WindowSpy is a utility from the [AutoHotkey project](https://github.com/AutoHotkey/AutoHotkey). The executable is included here for convenience only.
+
 #### **Log Files**
 - Location: Same directory as script/exe (`dLabAppControl.log`)
 - Contains: Startup info, coordinate calculations, event detection, close attempts
