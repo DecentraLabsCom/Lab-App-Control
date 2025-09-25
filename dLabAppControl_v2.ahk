@@ -6,7 +6,7 @@ if (A_Args.Length < 2) {
     MsgBox "Use: ControlApp.ahk [window_ahk_class] [C:\path\to\app.exe] [optional: close_control_ClassNN or X Y coordinates]"
     . "`n`nExamples:"
     . "`n- ControlApp.ahk `"Notepad`" `"notepad.exe`""
-    . "`n- ControlApp.ahk `"LVWindow`" `"myVI.exe`" 330 484"
+    . "`n- ControlApp.ahk `"LVDChild`" `"myVI.exe`" 330 484"
     . "`n- ControlApp.ahk `"MyAppClass`" `"C:\myapp.exe`" `"Button2`""
     . "`n`nCoordinate Guidelines (use WindowSpy):"
     . "`n- Use CLIENT coordinates (not Screen or Window)"
@@ -25,8 +25,8 @@ customCloseY := (A_Args.Length == 4) ? Integer(A_Args[4]) : 0
 ; Configuration constants
 POLL_INTERVAL_MS := 2000  ; Monitoring interval in milliseconds
 STARTUP_TIMEOUT  := 6     ; Startup timeout in seconds
-VERBOSE_LOGGING  := false ; Set to true for detailed polling logs, false for events only
-TEST_MODE        := true  ; Set to true to test custom close method after 5s (for debugging coordinates/control)
+VERBOSE_LOGGING  := true  ; Set to true for detailed polling logs, false for events only
+TEST_MODE        := false ; Set to true to test custom close method after 5s (for debugging coordinates/control)
 
 ; Custom graceful close button configuration (works with any desktop application)
 ; Determine method based on parameters provided
@@ -66,14 +66,17 @@ if !WinExist(target) {
     }
     
     Log("Launching app: " . appPath)
+    startTime := A_TickCount
     Run(appPath)
     Log("Waiting for window to appear (timeout: " . STARTUP_TIMEOUT . "s)...")
     if !WinWait(target, , STARTUP_TIMEOUT) {
-        Log("ERROR: Window did not appear within timeout")
+        elapsedTime := (A_TickCount - startTime) / 1000
+        Log("ERROR: Window did not appear within timeout (waited " . Format("{:.1f}", elapsedTime) . "s)")
         MsgBox "Couldn't open lab app at: " appPath
         ExitApp
     }
-    Log("Window appeared successfully")
+    elapsedTime := (A_TickCount - startTime) / 1000
+    Log("Window appeared successfully after " . Format("{:.1f}", elapsedTime) . "s")
 } else {
     Log("Target window already exists, activating it")
 }
@@ -146,8 +149,20 @@ TryCustomGracefulClose(target, timeoutSec := 3) {
     switch CUSTOM_CLOSE_METHOD {
         case "control":
             try {
+                Log("Attempting control click in disconnected session")
+                WinActivate(target)
+                Sleep(300)
+                
                 ControlClick(customCloseControl, target)
                 Log("Clicked custom close button via control: " . customCloseControl)
+                
+                ; Verify click worked, try alternative method if not
+                Sleep(1000)
+                if WinExist(target) {
+                    Log("Control click may not have worked - trying PostMessage")
+                    ControlSend("{Enter}", customCloseControl, target)  ; Alternative approach
+                }
+                
                 if WinWaitClose(target, , timeoutSec) {
                     return true
                 }
@@ -159,7 +174,26 @@ TryCustomGracefulClose(target, timeoutSec := 3) {
                     Log("TEST MODE ENABLED - Input coordinates: " . customCloseX . "," . customCloseY)
                 }
 
+                ; Ensure session is unlocked and window is accessible
+                Log("Preparing for click in disconnected session - activating window")
+                
+                ; Force window to foreground (works even in disconnected sessions)
+                WinActivate(target)
+                WinRestore(target)  ; In case it's minimized
+                Sleep(500)  ; Give time for window to become active
+                
+                ; Try to unlock screen if locked (common in disconnected RDP)
+                DllCall("user32.dll\SystemParametersInfo", "UInt", 0x0014, "UInt", 0, "Ptr", 0, "UInt", 0) ; SPI_SETSCREENSAVEACTIVE
+                
+                Log("Clicking at coordinates: " . customCloseX . "," . customCloseY)
                 Click(customCloseX, customCloseY)
+                
+                ; Additional verification click if first didn't work
+                Sleep(1000)
+                if WinExist(target) {
+                    Log("First click may not have worked - trying again")
+                    Click(customCloseX, customCloseY)
+                }
                 
                 if WinWaitClose(target, , timeoutSec) {
                     return true
@@ -226,7 +260,9 @@ CheckSessionEvents(*) {
     }
 
     ; New relevant event -> close the app and exit
-    if (current > 0 && current != lastId && CloseOnEventIds.IndexOf(evId)) {
+    ; If we got a valid event (current > 0) and it's different from last one,
+    ; it means it's already one of our target events (filtered by GetLatestRdpEventRecord)
+    if (current > 0 && current != lastId && evId > 0) {
         lastId := current
         Log("NEW EVENT DETECTED! Closing due to event ID: " . evId . " (RecordId " . current . ")")
         ForceCloseWindow(target, 3) ; wait ~3s after each attempt before escalating
