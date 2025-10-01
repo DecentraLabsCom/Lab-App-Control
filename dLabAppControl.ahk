@@ -266,8 +266,22 @@ GetLatestRdpEventRecord(ids := [23, 24, 39, 40]) {
     for id in ids
         cond .= (cond ? " or " : "") . "EventID=" . id
     xpath := "*[System[(" . cond . ")]]"
-    cmd := 'wevtutil qe "' . log . '" /q:"' . xpath . '" /c:1 /f:xml /rd:true > "' . tmp . '"'
-    RunWait(A_ComSpec . ' /C ' . cmd, , "Hide")
+
+    ; If the process AHK is 32-bit on 64-bit OS, use Sysnative to bypass redirection to SysWOW64
+    wevt := (A_PtrSize = 8) ? (A_WinDir "\System32\wevtutil.exe")
+                            : (A_WinDir "\Sysnative\wevtutil.exe")
+    if !FileExist(wevt)  ; Fallback in case running in 32-bit/32-bit
+        wevt := "wevtutil.exe"
+
+    ; Command with properly quoted arguments and redirection handled by cmd
+    fullCmd := Format('"{1}" qe "{2}" /q:"{3}" /c:1 /f:xml /rd:true > "{4}"'
+                    , wevt, log, xpath, tmp)
+    exitCode := RunWait(Format('"{1}" /C {2}', A_ComSpec, fullCmd), , "Hide")
+
+    if (exitCode != 0) {
+        Log("wevtutil failed. ExitCode=" . exitCode . " | Cmd=" . fullCmd)
+        return [0, 0]
+    }
 
     try {
         xml := FileRead(tmp, "UTF-8")
