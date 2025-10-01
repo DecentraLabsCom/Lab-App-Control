@@ -3,39 +3,74 @@
 ; ProcessSetPriority "High"
 
 if (A_Args.Length < 2) {
-    MsgBox "Use: ControlApp.ahk [window_ahk_class] [C:\path\to\app.exe] [optional: close_control_ClassNN or X Y coordinates]"
+    MsgBox "Use: ControlApp.ahk [window_ahk_class] [C:\path\to\app.exe] [optional: close_control_ClassNN or X Y coordinates] [optional: test]"
     . "`n`nExamples:"
     . "`n- ControlApp.ahk `"Notepad`" `"notepad.exe`""
     . "`n- ControlApp.ahk `"LVDChild`" `"myVI.exe`" 330 484"
-    . "`n- ControlApp.ahk `"MyAppClass`" `"C:\myapp.exe`" `"Button2`""
+    . "`n- ControlApp.ahk `"MyAppClass`" `"C:\myapp.exe`" `"ButtonClass`""
+    . "`n- ControlApp.ahk `"LVDChild`" `"myVI.exe`" 330 484 test"
     . "`n`nCoordinate Guidelines (use WindowSpy):"
     . "`n- Use CLIENT coordinates (not Screen or Window)"
     . "`n- Example: Client 330,484 means 330 pixels right, 484 down from client area"
     . "`n- CLIENT coordinates should be most reliable for LabVIEW/custom apps"
-    . "`n`nTEST MODE: Set TEST_MODE=true in script to test coordinates after 5s"
+    . "`n`nTEST MODE: Add 'test' as last parameter to test graceful close after 5s"
     ExitApp
 }
 
 windowClass := A_Args[1]
 appPath     := A_Args[2]
-customCloseControl := (A_Args.Length == 3) ? A_Args[3] : ""
-customCloseX := (A_Args.Length == 4) ? Integer(A_Args[3]) : 0
-customCloseY := (A_Args.Length == 4) ? Integer(A_Args[4]) : 0
+
+; Check if last argument is "test" for TEST_MODE
+lastArg := (A_Args.Length > 0) ? StrLower(A_Args[A_Args.Length]) : ""
+TEST_MODE := (lastArg = "test")
+Log("Command line args: " . A_Args.Length . " | Last arg: '" . lastArg . "' | TEST_MODE: " . TEST_MODE)
+
+; Determine custom close parameters (adjust for TEST_MODE parameter)
+if (TEST_MODE && A_Args.Length == 3) {
+    ; 3rd parameter is "test" - no custom close method
+    customCloseControl := ""
+    customCloseX := 0
+    customCloseY := 0
+} else if (!TEST_MODE && A_Args.Length == 3) {
+    ; 3rd parameter is control method
+    customCloseControl := A_Args[3]
+    customCloseX := 0
+    customCloseY := 0
+} else if (TEST_MODE && A_Args.Length == 5) {
+    ; 3rd and 4th are coordinates, 5th is "test"
+    customCloseControl := ""
+    customCloseX := Integer(A_Args[3])
+    customCloseY := Integer(A_Args[4])
+} else if (!TEST_MODE && A_Args.Length == 4) {
+    ; 3rd and 4th are coordinates, no test
+    customCloseControl := ""
+    customCloseX := Integer(A_Args[3])
+    customCloseY := Integer(A_Args[4])
+} else if (TEST_MODE && A_Args.Length == 4) {
+    ; 3rd is control, 4th is "test"
+    customCloseControl := A_Args[3]
+    customCloseX := 0
+    customCloseY := 0
+} else {
+    ; No custom close method specified
+    customCloseControl := ""
+    customCloseX := 0
+    customCloseY := 0
+}
 
 ; Configuration constants
-POLL_INTERVAL_MS := 2000  ; Monitoring interval in milliseconds
+POLL_INTERVAL_MS := 5000  ; Monitoring interval in milliseconds
 STARTUP_TIMEOUT  := 6     ; Startup timeout in seconds
 VERBOSE_LOGGING  := true  ; Set to true for detailed polling logs, false for events only
-TEST_MODE        := true  ; Set to true to test custom close method after 5s (for debugging coordinates/control)
 
 ; Custom graceful close button configuration (works with any desktop application)
 ; Determine method based on parameters provided
 if (customCloseControl != "") {
-    ; 3rd parameter provided - use control method
+    ; Control method specified
     CUSTOM_CLOSE_METHOD := "control"
     Log("Using custom close control from parameter: " . customCloseControl)
-} else if (A_Args.Length == 4 && customCloseX > 0 && customCloseY > 0) {
-    ; 3rd and 4th parameters provided - use coordinates method
+} else if (customCloseX > 0 && customCloseY > 0) {
+    ; Coordinates method specified
     CUSTOM_CLOSE_METHOD := "coordinates"
     Log("Using custom close coordinates from parameters: " . customCloseX . ", " . customCloseY)
 } else {
@@ -94,8 +129,26 @@ WinSetStyle("-0x80000", target) ; WS_SYSMENU (removes close button and system me
 !F4::return
 #HotIf
 
-; --- Monitoring RDP events (24/40 by default) ---
-CloseOnEventIds := [23, 24, 40]   ; Adjust here if needed (e.g., remove 23 for no logoff, add 25 for reconnect)
+; --- Session-change notifications (early trigger before UI dies) ---
+; 0 = NOTIFY_FOR_THIS_SESSION
+if DllCall("Wtsapi32\WTSRegisterSessionNotification", "ptr", A_ScriptHwnd, "uint", 0, "int")
+{
+    OnMessage(0x02B1, OnSessionChange)  ; WM_WTSSESSION_CHANGE
+    ; Backup: also listen for WM_QUERYENDSESSION (logoff/shutdown)
+    OnMessage(0x0011, OnQueryEndSession) ; WM_QUERYENDSESSION
+    OnExit( (*) => (
+        DllCall("Wtsapi32\WTSUnRegisterSessionNotification", "ptr", A_ScriptHwnd),
+        OnMessage(0x02B1, OnSessionChange, 0),
+        OnMessage(0x0011, OnQueryEndSession, 0)
+    ))
+    Log("Registered for WM_WTSSESSION_CHANGE / WM_QUERYENDSESSION notifications")
+}
+else {
+    Log("WARNING: Could not register for session notifications")
+}
+
+; --- Monitoring RDP events ---
+CloseOnEventIds := [23, 24, 39, 40]
 last := GetLatestRdpEventRecord(CloseOnEventIds) ; [RecordId, EventId]
 lastId := last[1]
 
@@ -147,10 +200,8 @@ TryCustomGracefulClose(target, timeoutSec := 3) {
     switch CUSTOM_CLOSE_METHOD {
         case "control":
             try {
-                ; Ensure session is unlocked and window is accessible                Log("Attempting control click in disconnected session")
-                Log("Attempting control click in disconnected session")
-                WinActivate(target)
-                Sleep(300)
+                Log("Attempting control click in (pre)disconnected session")
+
                 
                 ControlClick(customCloseControl, target)
                 Log("Clicked custom close button via control: " . customCloseControl)
@@ -158,8 +209,8 @@ TryCustomGracefulClose(target, timeoutSec := 3) {
                 ; Verify click worked, try alternative method if not
                 Sleep(500)
                 if WinExist(target) {
-                    Log("Control click may not have worked - trying PostMessage")
-                    ControlSend("{Enter}", customCloseControl, target)  ; Alternative approach
+                    Log("Control click may not have worked - trying ControlSend {Enter}")
+                    ControlSend("{Enter}", customCloseControl, target)
                 }
                 
                 if WinWaitClose(target, , timeoutSec) {
@@ -170,18 +221,18 @@ TryCustomGracefulClose(target, timeoutSec := 3) {
         case "coordinates":
             try {                
                 ; Ensure session is unlocked and window is accessible
-                Log("Attempting X,Y click in disconnected session")
+                Log("Attempting X,Y click in (pre)disconnected session")
                 WinActivate(target)
                 Sleep(300)
 
                 Click(customCloseX, customCloseY)
                 Log("Clicked at coordinates: " . customCloseX . "," . customCloseY)
                 
-                ; Additional verification click if first didn't work
-                Sleep(500)
+                ; Verify click worked, try alternative method if not
                 if WinExist(target) {
-                    Log("First click may not have worked - trying again")
-                    Click(customCloseX, customCloseY)
+                    Log("First click may not have worked - trying PostMessage click")
+                    PostMessage(0x0201, 0, (customCloseY << 16) | customCloseX, , target) ; WM_LBUTTONDOWN
+                    PostMessage(0x0202, 0, (customCloseY << 16) | customCloseX, , target) ; WM_LBUTTONUP
                 }
                 
                 if WinWaitClose(target, , timeoutSec) {
@@ -208,7 +259,7 @@ Log(msg) {
 
 ; Returns [EventRecordID, EventID] of the latest events
 ; Receives the list of IDs and builds the XPath dynamically
-GetLatestRdpEventRecord(ids := [24, 40]) {
+GetLatestRdpEventRecord(ids := [23, 24, 39, 40]) {
     log := "Microsoft-Windows-TerminalServices-LocalSessionManager/Operational"
     tmp := A_Temp "\rdp_event.xml"
     cond := ""
@@ -236,7 +287,7 @@ GetLatestRdpEventRecord(ids := [24, 40]) {
     return [recId, evId]
 }
 
-; Check for new RDP session events
+; Check for new RDP session events (fallback/back-up)
 CheckSessionEvents(*) {
     global lastId, CloseOnEventIds, target, VERBOSE_LOGGING
 
@@ -259,8 +310,9 @@ CheckSessionEvents(*) {
     }
 }
 
-; Graceful → forced: App Stop → WinClose → SC_CLOSE → Alt+F4 → kill
+; Graceful → forced: App Stop → WinClose → SC_CLOSE → WM_CLOSE → kill
 ForceCloseWindow(target, graceSec := 3) {
+    global CUSTOM_CLOSE_METHOD
     ; 0) Try custom graceful close first (only if method is configured)
     if WinExist(target) && (CUSTOM_CLOSE_METHOD != "none") {
         if TryCustomGracefulClose(target, graceSec) {
@@ -300,4 +352,35 @@ ForceCloseWindow(target, graceSec := 3) {
         return !WinExist(target)
     }
     return true
+}
+
+; --- Early session-change handler (pre-disconnect) ---
+OnSessionChange(wParam, lParam, msg, hwnd) {
+    static WTS_SESSION_CONSOLE_CONNECT := 0x1
+    static WTS_SESSION_REMOTE_CONNECT  := 0x3
+    static WTS_SESSION_REMOTE_DISCONNECT := 0x4
+    static WTS_SESSION_DISCONNECT := 0x5
+    static WTS_SESSION_LOGOFF := 0x6
+    static WTS_SESSION_LOCK := 0x7
+    static WTS_SESSION_UNLOCK := 0x8
+
+    global target
+
+    if (wParam = WTS_SESSION_DISCONNECT
+     || wParam = WTS_SESSION_REMOTE_DISCONNECT
+     || wParam = WTS_SESSION_LOGOFF
+     || wParam = WTS_SESSION_LOCK) 
+    {
+        Log("WM_WTSSESSION_CHANGE: early close on wParam=" . wParam . " (pre-disconnect)")
+        ForceCloseWindow(target, 2)
+        ExitApp
+    }
+}
+
+; --- Backup for logoff/shutdown (not for simple disconnect) ---
+OnQueryEndSession(wParam, lParam, msg, hwnd) {
+    global target
+    Log("WM_QUERYENDSESSION received: attempting early close")
+    ForceCloseWindow(target, 2)
+    ExitApp
 }
