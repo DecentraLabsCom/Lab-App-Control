@@ -202,7 +202,6 @@ TryCustomGracefulClose(target, timeoutSec := 3) {
             try {
                 Log("Attempting control click in (pre)disconnected session")
 
-                
                 ControlClick(customCloseControl, target)
                 Log("Clicked custom close button via control: " . customCloseControl)
                 
@@ -260,26 +259,43 @@ Log(msg) {
 ; Returns [EventRecordID, EventID] of the latest events
 ; Receives the list of IDs and builds the XPath dynamically
 GetLatestRdpEventRecord(ids := [23, 24, 39, 40]) {
-    log := "Microsoft-Windows-TerminalServices-LocalSessionManager/Operational"
+    eventLog := "Microsoft-Windows-TerminalServices-LocalSessionManager/Operational"
     tmp := A_Temp "\rdp_event.xml"
     cond := ""
     for id in ids
         cond .= (cond ? " or " : "") . "EventID=" . id
     xpath := "*[System[(" . cond . ")]]"
 
-    ; If the process AHK is 32-bit on 64-bit OS, use Sysnative to bypass redirection to SysWOW64
-    wevt := (A_PtrSize = 8) ? (A_WinDir "\System32\wevtutil.exe")
-                            : (A_WinDir "\Sysnative\wevtutil.exe")
-    if !FileExist(wevt)  ; Fallback in case running in 32-bit/32-bit
+    ; Try to find wevtutil.exe in the best location for this system
+    wevt := ""
+    
+    ; First try: 64-bit process or native 32-bit system
+    if FileExist(A_WinDir "\System32\wevtutil.exe")
+        wevt := A_WinDir "\System32\wevtutil.exe"
+    
+    ; Second try: 32-bit process on 64-bit system (bypass WOW64 redirection)
+    if (!wevt && FileExist(A_WinDir "\Sysnative\wevtutil.exe"))
+        wevt := A_WinDir "\Sysnative\wevtutil.exe"
+    
+    ; Third try: Let Windows find it in PATH
+    if (!wevt)
         wevt := "wevtutil.exe"
 
     ; Command with properly quoted arguments and redirection handled by cmd
     fullCmd := Format('"{1}" qe "{2}" /q:"{3}" /c:1 /f:xml /rd:true > "{4}"'
-                    , wevt, log, xpath, tmp)
-    exitCode := RunWait(Format('"{1}" /C {2}', A_ComSpec, fullCmd), , "Hide")
-
-    if (exitCode != 0) {
-        Log("wevtutil failed. ExitCode=" . exitCode . " | Cmd=" . fullCmd)
+                    , wevt, eventLog, xpath, tmp)
+    
+    try {
+        exitCode := RunWait(Format('"{1}" /C {2}', A_ComSpec, fullCmd), , "Hide")
+        
+        if (exitCode != 0) {
+            Log("wevtutil failed. ExitCode=" . exitCode . " | Cmd=" . fullCmd)
+            return [0, 0]
+        }
+    } catch as e {
+        errMsg := (Type(e) = "Error") ? e.message : String(e)
+        logText := Format("wevtutil execution failed: {1} | Cmd={2}", errMsg, fullCmd)
+        Log(logText)
         return [0, 0]
     }
 
