@@ -12,8 +12,12 @@ This single-instance AHK v2 script that launches your lab control app on connect
 > `dLabAppControl_v2.exe "WindowClass" "C:\path\to\app.exe"`
 >
 > Advanced usage with custom close:\
-> `dLabAppControl_v2.exe "WindowClass" "C:\path\to\app.exe" "Button2"`\
+> `dLabAppControl_v2.exe "WindowClass" "C:\path\to\app.exe" "ButtonClass"`\
 > `dLabAppControl_v2.exe "LVWindow" "C:\path\to\myVI.exe" 330 484`
+>
+> Test mode (for debugging custom close methods):\
+> `dLabAppControl_v2.exe "LVWindow" "C:\path\to\myVI.exe" 330 484 test`\
+> `dLabAppControl_v2.exe "Notepad" "notepad.exe" "ButtonClass" test`
 >
 > or
 >
@@ -30,9 +34,9 @@ This single-instance AHK v2 script that launches your lab control app on connect
 * **Window management & hardening**\
   Activates and maximizes the window; removes minimize and close buttons to prevent user-initiated closure.
 * **Session-aware auto-shutdown**\
-  Automatically closes the app when a **new RDP session event** is detected (e.g., connect/reconnect/disconnect from _Microsoft-Windows-TerminalServices-LocalSessionManager/Operational_, IDs 23/24/40).
-* **Background monitoring (2 s interval)**\
-  Runs silently, polling every 2 s via native `wevtutil` (faster than PowerShell).
+  Automatically closes the app when RDP session changes are detected using **WTS Session Notifications** (primary method) with event log polling as fallback.
+* **Hybrid detection system**\
+  Primary: Real-time WTS session notifications for instant response. Fallback: Event log monitoring via native `wevtutil` for compatibility.
 * **Custom close methods**\
   Supports graceful app closure via ClassNN controls or X,Y coordinates for LabVIEW/custom apps.
 * **Smart coordinate handling**\
@@ -84,10 +88,10 @@ Second option (download and compile script)
 The script includes several configuration constants that can be modified at the top of the file:
 
 #### **Core Settings**
-* **`POLL_INTERVAL_MS`**: Monitoring interval in milliseconds (default: **2000** = 2 seconds)
+* **`POLL_INTERVAL_MS`**: Fallback monitoring interval in milliseconds (default: **5000** = 5 seconds)
 * **`STARTUP_TIMEOUT`**: How long to wait for app window to appear (default: **6** seconds)
-* **`CloseOnEventIds`**: RDP event IDs that trigger app closure (default: `[23, 24, 40]`)
-  - `23`: Logoff, `24`: Disconnect, `40`: Reconnect
+* **`CloseOnEventIds`**: RDP event IDs that trigger app closure (default: `[23, 24, 39, 40]`)
+  - `23`: Logoff, `24`: Disconnect, `39`: Session disconnect, `40`: Reconnect
 
 #### **Debugging & Testing**
 * **`VERBOSE_LOGGING`**: Enable detailed polling logs (default: `false` for production)
@@ -126,3 +130,16 @@ Use the included **WindowSpy.exe** tool to identify:
 
 Run this script **when a user session starts** (e.g., on Guacamole/RDP connect).\
 It will keep the lab app active and **will close it on the next RDP session event** (typically the disconnect at the end of the session).
+
+#### **Recommended Setup: Guacamole + Windows Remote App**
+
+For optimal security and user experience, use this script in combination with:
+- **Apache Guacamole** for web-based remote access
+- **Windows Remote App connections** to expose individual applications
+- **Controlled lab environment** where users access only specific tools
+
+This setup provides:
+- ✅ **Application isolation**: Users see only the lab app, not the full desktop
+- ✅ **Automatic lifecycle management**: Apps start/stop with user sessions
+- ✅ **Enhanced security**: No access to underlying Windows system
+- ✅ **Seamless integration**: Works transparently with Guacamole's session management
