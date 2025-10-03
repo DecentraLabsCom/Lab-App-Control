@@ -2,11 +2,11 @@
 description: Automatically open and close Windows lab apps based on user sessions.
 ---
 
-# Lab Control
+# Lab App Control
 
 **dLabAppControl** is an AutoHotKey script designed to auto-control the lab app lifecycle based on user session events (RDP) in the DecentraLabs lab provider machine.
 
-This single-instance AHK v2 script that launches your lab control app on connect, keeps it foregrounded, and closes it automatically when the user session changes (e.g., disconnects).
+This single-instance AHK v2 script launches your lab Windows desktop control app on connect, keeps it foregrounded, and closes it automatically when the user session changes (e.g., disconnects).
 
 > Usage:\
 > `dLabAppControl_v2.exe "WindowClass" "C:\path\to\app.exe"`
@@ -52,33 +52,33 @@ This single-instance AHK v2 script that launches your lab control app on connect
 
 First option (using the executable):
 
-1. Download `dLabAppControl_v2.exe`.
+1. Download `dLabAppControl.exe`.
 2.  Run with:
 
     ```powershell
     # Basic usage
-    .\dLabAppControl_v2.exe "YourWindowClass" "C:\Path\To\LabControl.exe"
-    
+    .\dLabAppControl.exe "YourWindowClass" "C:\Path\To\LabControl.exe"
+
     # With custom close button (ClassNN)
-    .\dLabAppControl_v2.exe "Notepad" "C:\Windows\System32\notepad.exe" "Button2"
-    
+    .\dLabAppControl.exe "Notepad" "C:\Windows\System32\notepad.exe" "Button2"
+
     # With custom close coordinates (LabVIEW/custom apps)
-    .\dLabAppControl_v2.exe "LVWindow" "C:\Path\To\myVI.exe" 330 484
+    .\dLabAppControl.exe "LVWindow" "C:\Path\To\myVI.exe" 330 484
     ```
 
 Second option (download and compile script)
 
 1. Install AutoHotKey v2.
-2. Place `dLabAppControl_v2.ahk` on the provider machine.
+2. Place `dLabAppControl.ahk` on the provider machine.
 3.  (Optional) Compile:
 
     ```powershell
-    "C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe" /in "dLabAppControl_v2.ahk" /out "dLabAppControl_v2.exe"
+    "C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe" /in "dLabAppControl.ahk" /out "dLabAppControl_v2.exe"
     ```
 4.  Run with:
 
     ```powershell
-    "C:\Program Files\AutoHotkey\v2\AutoHotkey.exe" dLabAppControl_v2.ahk "YourWindowClass" "C:\Path\To\LabControl.exe"
+    "C:\Program Files\AutoHotkey\v2\AutoHotkey.exe" dLabAppControl.ahk "YourWindowClass" "C:\Path\To\LabControl.exe"
     ```
 
 ***
@@ -88,41 +88,49 @@ Second option (download and compile script)
 The script includes several configuration constants that can be modified at the top of the file:
 
 #### **Core Settings**
+
 * **`POLL_INTERVAL_MS`**: Fallback monitoring interval in milliseconds (default: **5000** = 5 seconds)
 * **`STARTUP_TIMEOUT`**: How long to wait for app window to appear (default: **6** seconds)
 * **`CloseOnEventIds`**: RDP event IDs that trigger app closure (default: `[23, 24, 39, 40]`)
-  - `23`: Logoff, `24`: Disconnect, `39`: Session disconnect, `40`: Reconnect
+  * `23`: Logoff, `24`: Disconnect, `39`: Session disconnect, `40`: Reconnect
 
 #### **Debugging & Testing**
+
 * **`VERBOSE_LOGGING`**: Enable detailed polling logs (default: `false` for production)
 * **`RDP_CONTEXT`**: Enhanced logging for RDP/Guacamole environments (default: `true`)
 * **`TEST_MODE`**: Test custom close after 5 seconds - **DISABLE IN PRODUCTION** (default: `true`)
 
 #### **Custom Close Methods**
+
 The script supports three ways to close applications gracefully:
 
 1. **Standard cascade**: `WinClose` → `WM_SYSCOMMAND` → `WM_CLOSE` → `ProcessClose`
-2. **ClassNN control**: For Win32 apps with accessible controls
-   ```powershell
-   dLabAppControl_v2.exe "Notepad" "notepad.exe" "Button2"
-   ```
-3. **Client coordinates**: For LabVIEW/custom apps (use WindowSpy CLIENT coordinates)
-   ```powershell
-   dLabAppControl_v2.exe "LVWindow" "myVI.exe" 330 484
-   ```
+2.  **ClassNN control**: For Win32 apps with accessible controls
+
+    ```powershell
+    dLabAppControl_v2.exe "Notepad" "notepad.exe" "ButtonClass"
+    ```
+3.  **Client coordinates**: For LabVIEW/custom apps (use WindowSpy CLIENT coordinates)
+
+    ```powershell
+    dLabAppControl_v2.exe "LVWindow" "myVI.exe" 330 484
+    ```
 
 #### **Finding Window Information**
+
 Use the included **WindowSpy.exe** tool to identify:
-- **Window Class** (`ahk_class`): Used as first parameter
-- **ClassNN** controls: For control-based closing
-- **CLIENT coordinates**: Most reliable for custom apps (not Screen or Window coordinates)
+
+* **Window Class** (`ahk_class`): Used as first parameter
+* **ClassNN** controls: For control-based closing
+* **CLIENT coordinates**: Most reliable for custom apps (not Screen or Window coordinates)
 
 > **Note**: WindowSpy is a utility from the [AutoHotkey project](https://github.com/AutoHotkey/AutoHotkey). The executable is included here for convenience only.
 
 #### **Log Files**
-- Location: Same directory as script/exe (`dLabAppControl.log`)
-- Contains: Startup info, coordinate calculations, event detection, close attempts
-- Enable `VERBOSE_LOGGING` for detailed polling information.
+
+* Location: Same directory as script/exe (`dLabAppControl.log`)
+* Contains: Startup info, coordinate calculations, event detection, close attempts
+* Enable `VERBOSE_LOGGING` for detailed polling information.
 
 ***
 
@@ -134,12 +142,14 @@ It will keep the lab app active and **will close it on the next RDP session even
 #### **Recommended Setup: Guacamole + Windows Remote App**
 
 For optimal security and user experience, use this script in combination with:
-- **Apache Guacamole** for web-based remote access
-- **Windows Remote App connections** to expose individual applications
-- **Controlled lab environment** where users access only specific tools
+
+* **Apache Guacamole** for web-based remote access
+* **Windows Remote App connections** to expose individual applications
+* **Controlled lab environment** where users access only specific tools
 
 This setup provides:
-- ✅ **Application isolation**: Users see only the lab app, not the full desktop
-- ✅ **Automatic lifecycle management**: Apps start/stop with user sessions
-- ✅ **Enhanced security**: No access to underlying Windows system
-- ✅ **Seamless integration**: Works transparently with Guacamole's session management
+
+* ✅ **Application isolation**: Users see only the lab app, not the full desktop
+* ✅ **Automatic lifecycle management**: Apps start/stop with user sessions
+* ✅ **Enhanced security**: No access to underlying Windows system
+* ✅ **Seamless integration**: Works transparently with Guacamole's session management
