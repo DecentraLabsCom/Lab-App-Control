@@ -9,19 +9,19 @@ description: Automatically open and close Windows lab apps based on user session
 This single-instance AHK v2 script launches your lab Windows desktop control app on connect, keeps it foregrounded, and closes it automatically when the user session changes (e.g., disconnects).
 
 > Usage:\
-> `dLabAppControl_v2.exe "WindowClass" "C:\path\to\app.exe"`
+> `dLabAppControl.exe "WindowClass" "C:\path\to\app.exe"`
 >
 > Advanced usage with custom close:\
-> `dLabAppControl_v2.exe "WindowClass" "C:\path\to\app.exe" "ButtonClass"`\
-> `dLabAppControl_v2.exe "LVWindow" "C:\path\to\myVI.exe" 330 484`
+> `dLabAppControl.exe "WindowClass" "C:\path\to\app.exe" "ButtonClass"`\
+> `dLabAppControl.exe "LVWindow" "C:\path\to\myVI.exe" 330 484`
 >
 > Test mode (for debugging custom close methods):\
-> `dLabAppControl_v2.exe "LVWindow" "C:\path\to\myVI.exe" 330 484 test`\
-> `dLabAppControl_v2.exe "Notepad" "notepad.exe" "ButtonClass" test`
+> `dLabAppControl.exe "LVWindow" "C:\path\to\myVI.exe" 330 484 test`\
+> `dLabAppControl.exe "Notepad" "notepad.exe" "ButtonClass" test`
 >
 > or
 >
-> `"C:\Program Files\AutoHotkey\v2\AutoHotkey.exe" dLabAppControl_v2.ahk "window ahk_class" "C:\path\to\app.exe"`
+> `"C:\Program Files\AutoHotkey\v2\AutoHotkey.exe" dLabAppControl.ahk "window ahk_class" "C:\path\to\app.exe"`
 
 ***
 
