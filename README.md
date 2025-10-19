@@ -91,14 +91,15 @@ The script includes several configuration constants that can be modified at the 
 
 * **`POLL_INTERVAL_MS`**: Fallback monitoring interval in milliseconds (default: **5000** = 5 seconds)
 * **`STARTUP_TIMEOUT`**: How long to wait for app window to appear (default: **6** seconds)
+* **`ACTIVATION_RETRIES`**: Number of retries for window activation when Groupy temporarily hides window (default: **5**)
 * **`CloseOnEventIds`**: RDP event IDs that trigger app closure (default: `[23, 24, 39, 40]`)
   * `23`: Logoff, `24`: Disconnect, `39`: Session disconnect, `40`: Reconnect
 
 #### **Debugging & Testing**
 
-* **`VERBOSE_LOGGING`**: Enable detailed polling logs (default: `false` for production)
-* **`RDP_CONTEXT`**: Enhanced logging for RDP/Guacamole environments (default: `true`)
-* **`TEST_MODE`**: Test custom close after 5 seconds - **DISABLE IN PRODUCTION** (default: `true`)
+* **`VERBOSE_LOGGING`**: Enable detailed polling logs (default: `true` for debugging, `false` for production)
+* **`SILENT_ERRORS`**: Suppress error MsgBox popups - log only (default: `false`)
+* **`TEST_MODE`**: Activated via command-line parameter `test` - test custom close after 5 seconds
 
 #### **Custom Close Methods**
 
@@ -108,13 +109,31 @@ The script supports three ways to close applications gracefully:
 2.  **ClassNN control**: For Win32 apps with accessible controls
 
     ```powershell
-    dLabAppControl_v2.exe "Notepad" "notepad.exe" "ButtonClass"
+    dLabAppControl.exe "Notepad" "notepad.exe" "ButtonClass"
     ```
 3.  **Client coordinates**: For LabVIEW/custom apps (use WindowSpy CLIENT coordinates)
 
     ```powershell
-    dLabAppControl_v2.exe "LVWindow" "myVI.exe" 330 484
+    dLabAppControl.exe "LVWindow" "myVI.exe" 330 484
     ```
+
+#### **TEST MODE Usage**
+
+Test your custom close coordinates/controls before deployment:
+
+```powershell
+# Test coordinate-based close
+dLabAppControl.exe "LVWindow" "myVI.exe" 330 484 test
+
+# Test control-based close  
+dLabAppControl.exe "Notepad" "notepad.exe" "Button2" test
+```
+
+When `test` is added as the last parameter:
+- ✅ App launches normally
+- ⏱️ After 5 seconds, custom close method is tested
+- ✅ Success: App closes gracefully (check log for confirmation)
+- ❌ Failure: App remains open (check log and adjust coordinates/control)
 
 #### **Finding Window Information**
 
@@ -129,8 +148,8 @@ Use the included **WindowSpy.exe** tool to identify:
 #### **Log Files**
 
 * Location: Same directory as script/exe (`dLabAppControl.log`)
-* Contains: Startup info, coordinate calculations, event detection, close attempts
-* Enable `VERBOSE_LOGGING` for detailed polling information.
+* Contains: Startup info, activation retries, coordinate calculations, event detection, close attempts
+* Enable `VERBOSE_LOGGING` for detailed polling information
 
 ***
 

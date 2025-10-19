@@ -61,7 +61,9 @@ if (TEST_MODE && A_Args.Length == 3) {
 ; Configuration constants
 POLL_INTERVAL_MS := 5000  ; Monitoring interval in milliseconds
 STARTUP_TIMEOUT  := 6     ; Startup timeout in seconds
-VERBOSE_LOGGING  := true  ; Set to true for detailed polling logs, false for events only
+ACTIVATION_RETRIES := 3   ; Number of retries for window activation
+VERBOSE_LOGGING  := false ; Set to true for detailed polling logs, false for events only
+SILENT_ERRORS    := true  ; Set to true to suppress error MsgBox popups (log only)
 
 ; Custom graceful close button configuration (works with any desktop application)
 ; Determine method based on parameters provided
@@ -96,7 +98,8 @@ if !WinExist(target) {
     ; Validate that the application file exists before trying to run it
     if !FileExist(appPath) {
         Log("ERROR: Application file not found: " . appPath)
-        MsgBox "Application file not found: " . appPath
+        if !SILENT_ERRORS
+            MsgBox "Application file not found: " . appPath
         ExitApp
     }
     
@@ -107,22 +110,80 @@ if !WinExist(target) {
     if !WinWait(target, , STARTUP_TIMEOUT) {
         elapsedTime := (A_TickCount - startTime) / 1000
         Log("ERROR: Window did not appear within timeout (waited " . Format("{:.1f}", elapsedTime) . "s)")
-        MsgBox "Couldn't open lab app at: " appPath
+        if !SILENT_ERRORS
+            MsgBox "Couldn't open lab app at: " . appPath . "`n`nWindow class '" . windowClass . "' not found after " . Format("{:.1f}", elapsedTime) . "s"
         ExitApp
     }
+    
     elapsedTime := (A_TickCount - startTime) / 1000
     Log("Window appeared successfully after " . Format("{:.1f}", elapsedTime) . "s")
 } else {
     Log("Target window already exists, activating it")
 }
 
-; Ensure foreground and maximized
-WinActivate(target)
-WinMaximize(target)
+; Ensure foreground and maximized (with retry logic)
+Log("Activating and maximizing window...")
+activationSuccess := false
+
+Loop ACTIVATION_RETRIES {
+    attempt := A_Index
+    ; Check if window still exists before each operation
+    if !WinExist(target) {
+        if (attempt < ACTIVATION_RETRIES) {
+            Log("Window temporarily unavailable (attempt " . attempt . "/" . ACTIVATION_RETRIES . ") - waiting 500ms...")
+            Sleep(500)
+            continue
+        } else {
+            Log("ERROR: Window disappeared and did not reappear after " . ACTIVATION_RETRIES . " attempts")
+            if !SILENT_ERRORS
+                MsgBox "Window '" . windowClass . "' disappeared unexpectedly.`n`nThis may happen if Groupy is processing the window."
+            ExitApp
+        }
+    }
+    
+    ; Try to activate
+    try {
+        WinActivate(target)
+        Sleep(200)  ; Brief pause to let activation complete
+        
+        ; Verify activation worked
+        if WinActive(target) || WinExist(target) {
+            ; Try to maximize
+            try {
+                WinMaximize(target)
+                activationSuccess := true
+                Log("Window activated and maximized successfully (attempt " . attempt . ")")
+                break
+            } catch as e {
+                Log("Maximize failed on attempt " . attempt . ": " . e.message)
+            }
+        } else {
+            Log("Activation did not complete on attempt " . attempt)
+        }
+    } catch as e {
+        Log("WinActivate failed on attempt " . attempt . ": " . e.message)
+    }
+    
+    ; Wait before retry (except on last attempt)
+    if (attempt < ACTIVATION_RETRIES && !activationSuccess) {
+        Sleep(500)
+    }
+}
+
+if !activationSuccess {
+    Log("WARNING: Could not reliably activate/maximize window after " . ACTIVATION_RETRIES . " attempts - continuing anyway...")
+    ; Don't exit - the window exists, we just couldn't activate it perfectly
+}
 
 ; Remove minimize and close buttons (but keep title bar)
-WinSetStyle("-0x20000", target) ; WS_MINIMIZEBOX
-WinSetStyle("-0x80000", target) ; WS_SYSMENU (removes close button and system menu)
+; Use try/catch to handle cases where window style cannot be modified
+try {
+    WinSetStyle("-0x20000", target) ; WS_MINIMIZEBOX
+    WinSetStyle("-0x80000", target) ; WS_SYSMENU (removes close button and system menu)
+    Log("Window styles modified successfully (minimize/close buttons removed)")
+} catch as e {
+    Log("WARNING: Could not modify window styles: " . e.message)
+}
 
 ; Block Alt+F4 on the lab window
 #HotIf WinActive(target)
@@ -149,8 +210,8 @@ else {
 
 ; --- Monitoring RDP events ---
 CloseOnEventIds := [23, 24, 39, 40]
-last := GetLatestRdpEventRecord(CloseOnEventIds) ; [RecordId, EventId]
-lastId := last[1]
+; Initialize lastId to 0 (will be updated by polling if wevtutil works)
+lastId := 0
 
 SetTimer(CheckSessionEvents, POLL_INTERVAL_MS)
 
@@ -259,6 +320,8 @@ Log(msg) {
 ; Returns [EventRecordID, EventID] of the latest events
 ; Receives the list of IDs and builds the XPath dynamically
 GetLatestRdpEventRecord(ids := [23, 24, 39, 40]) {
+    static wevtutilErrorLogged := false  ; Log error only once to avoid spam
+    
     eventLog := "Microsoft-Windows-TerminalServices-LocalSessionManager/Operational"
     tmp := A_Temp "\rdp_event.xml"
     cond := ""
@@ -289,13 +352,18 @@ GetLatestRdpEventRecord(ids := [23, 24, 39, 40]) {
         exitCode := RunWait(Format('"{1}" /C {2}', A_ComSpec, fullCmd), , "Hide")
         
         if (exitCode != 0) {
-            Log("wevtutil failed. ExitCode=" . exitCode . " | Cmd=" . fullCmd)
+            if (!wevtutilErrorLogged) {
+                Log("wevtutil failed (ExitCode=" . exitCode . ") - This is normal if WTS notifications work.")
+                wevtutilErrorLogged := true
+            }
             return [0, 0]
         }
     } catch as e {
-        errMsg := (Type(e) = "Error") ? e.message : String(e)
-        logText := Format("wevtutil execution failed: {1} | Cmd={2}", errMsg, fullCmd)
-        Log(logText)
+        if (!wevtutilErrorLogged) {
+            errMsg := (Type(e) = "Error") ? e.message : String(e)
+            Log("wevtutil execution failed: " . errMsg . " - This is normal if WTS notifications work.")
+            wevtutilErrorLogged := true
+        }
         return [0, 0]
     }
 
