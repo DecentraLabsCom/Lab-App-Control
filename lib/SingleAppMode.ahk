@@ -4,10 +4,13 @@
 ; Functions for managing a single application with RDP disconnect handling
 ; ============================================================================
 
-CreateSingleApp(windowClass, appPath) {
+CreateSingleApp(windowClass, appCommand) {
     global target, STARTUP_TIMEOUT, ACTIVATION_RETRIES, SILENT_ERRORS, TEST_MODE, CUSTOM_CLOSE_METHOD
     
     Log("Initializing single app mode", "INFO")
+    
+    ; Extract executable path for window identification
+    appPath := ExtractExecutablePath(appCommand)
     
     ; Precise window identification - handle both executables and scripts
     SplitPath(appPath, &exeName, , &ext)
@@ -25,21 +28,21 @@ CreateSingleApp(windowClass, appPath) {
         Log("Target window not found, attempting to launch application...", "DEBUG")
         ; Validate that the application file exists before trying to run it
         if !FileExist(appPath) {
-            Log("ERROR: Application file not found: " . appPath)
+            Log("ERROR: Application executable not found: " . appPath)
             if !SILENT_ERRORS
-                MsgBox "Application file not found: " . appPath
+                MsgBox "Application executable not found: " . appPath
             ExitApp
         }
         
-        Log("Launching app: " . appPath)
+        Log("Launching app: " . appCommand)
         startTime := A_TickCount
-        Run(appPath)
+        Run(appCommand)
         Log("Waiting for window to appear (timeout: " . STARTUP_TIMEOUT . "s)...")
         if !WinWait(target, , STARTUP_TIMEOUT) {
             elapsedTime := (A_TickCount - startTime) / 1000
             Log("ERROR: Window did not appear within timeout (waited " . Format("{:.1f}", elapsedTime) . "s)")
             if !SILENT_ERRORS
-                MsgBox "Couldn't open lab app at: " . appPath . "`n`nWindow class '" . windowClass . "' not found after " . Format("{:.1f}", elapsedTime) . "s"
+                MsgBox "Couldn't open lab app at: " . appCommand . "`n`nWindow class '" . windowClass . "' not found after " . Format("{:.1f}", elapsedTime) . "s"
             ExitApp
         }
         

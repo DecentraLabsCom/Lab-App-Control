@@ -140,3 +140,34 @@ IsUWPApp(hwnd, className := "") {
     
     return false
 }
+
+; Extract executable path from a full command string (removes parameters)
+ExtractExecutablePath(command) {
+    ; Handle commands with quoted executable paths followed by parameters
+    ; Examples:
+    ; - "C:\Program Files\app.exe" --param value
+    ; - C:\Program Files\app.exe --param value
+    ; - "C:\path\app.exe"
+    
+    command := Trim(command)
+    
+    ; If command starts with a quote, find the matching closing quote
+    if (SubStr(command, 1, 1) = '"') {
+        ; Find the closing quote
+        closeQuotePos := InStr(command, '"', , 2)  ; Find second occurrence of "
+        if (closeQuotePos > 1) {
+            ; Extract path between quotes
+            return SubStr(command, 2, closeQuotePos - 2)
+        }
+    }
+    
+    ; No quotes or single argument - check if there are spaces (parameters)
+    spacePos := InStr(command, " ")
+    if (spacePos > 0) {
+        ; Return everything before the first space
+        return SubStr(command, 1, spacePos - 1)
+    }
+    
+    ; Single path, no parameters
+    return command
+}

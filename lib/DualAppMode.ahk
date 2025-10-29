@@ -48,21 +48,25 @@ PositionUWPApp(hwnd, x, y, width, height, maxRetries := 5) {
     return false
 }
 
-CreateDualAppContainer(class1, path1, class2, path2, tab1Title := "Application 1", tab2Title := "Application 2") {
+CreateDualAppContainer(class1, command1, class2, command2, tab1Title := "Application 1", tab2Title := "Application 2") {
     global STARTUP_TIMEOUT, POLL_INTERVAL_MS
     
     Log("Initializing dual app container mode", "INFO")
     Log("Tab titles: '" . tab1Title . "' and '" . tab2Title . "'", "DEBUG")
     
+    ; Extract executable paths for validation (commands may include parameters)
+    appPath1 := ExtractExecutablePath(command1)
+    appPath2 := ExtractExecutablePath(command2)
+    
     ; Validate that application files exist
-    if !FileExist(path1) {
-        Log("ERROR: Application 1 file not found: " . path1, "ERROR")
-        MsgBox "Application 1 file not found: " . path1
+    if !FileExist(appPath1) {
+        Log("ERROR: Application 1 executable not found: " . appPath1, "ERROR")
+        MsgBox "Application 1 executable not found: " . appPath1
         ExitApp
     }
-    if !FileExist(path2) {
-        Log("ERROR: Application 2 file not found: " . path2, "ERROR")
-        MsgBox "Application 2 file not found: " . path2
+    if !FileExist(appPath2) {
+        Log("ERROR: Application 2 executable not found: " . appPath2, "ERROR")
+        MsgBox "Application 2 executable not found: " . appPath2
         ExitApp
     }
     
@@ -85,33 +89,33 @@ CreateDualAppContainer(class1, path1, class2, path2, tab1Title := "Application 1
     Log("App container created - Full screen: " . cWidth . "x" . cHeight, "DEBUG")
     
     ; Launch applications FIRST to detect their window classes
-    Log("Launching Application 1: " . path1, "DEBUG")
+    Log("Launching Application 1: " . command1, "DEBUG")
     try {
-        Run(path1, , , &pid1)
+        Run(command1, , , &pid1)
     } catch as e {
         Log("ERROR: Failed to launch App 1: " . e.message, "ERROR")
-        MsgBox "Failed to launch Application 1: " . path1 . "`n`nError: " . e.message
+        MsgBox "Failed to launch Application 1: " . command1 . "`n`nError: " . e.message
         ExitApp
     }
     
     ; Check if App 1 is a launcher (jar, bat, script) - may spawn different process
-    SplitPath(path1, , , &ext1)
+    SplitPath(appPath1, , , &ext1)
     isLauncher1 := (StrLower(ext1) != "exe")
     if (isLauncher1) {
         Log("App 1 is a launcher file (." . ext1 . ") - will use class-only detection", "DEBUG")
     }
     
-    Log("Launching Application 2: " . path2, "DEBUG")
+    Log("Launching Application 2: " . command2, "DEBUG")
     try {
-        Run(path2, , , &pid2)
+        Run(command2, , , &pid2)
     } catch as e {
         Log("ERROR: Failed to launch App 2: " . e.message, "ERROR")
-        MsgBox "Failed to launch Application 2: " . path2 . "`n`nError: " . e.message
+        MsgBox "Failed to launch Application 2: " . command2 . "`n`nError: " . e.message
         ExitApp
     }
     
     ; Check if App 2 is a launcher (jar, bat, script) - may spawn different process
-    SplitPath(path2, , , &ext2)
+    SplitPath(appPath2, , , &ext2)
     isLauncher2 := (StrLower(ext2) != "exe")
     if (isLauncher2) {
         Log("App 2 is a launcher file (." . ext2 . ") - will use class-only detection", "DEBUG")

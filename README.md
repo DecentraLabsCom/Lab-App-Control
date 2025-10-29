@@ -9,11 +9,13 @@ description: Automatically open and close Windows lab apps based on user session
 This single-instance AHK v2 script launches your lab Windows desktop control app on connect, keeps it foregrounded, and closes it automatically when the user session changes (e.g., disconnects).
 
 > **Single Application Mode:**\
-> `dLabAppControl.exe "WindowClass" "C:\path\to\app.exe"`
+> `dLabAppControl.exe "WindowClass" "C:\path\to\app.exe"`\
+> `dLabAppControl.exe "Chrome_WidgetWin_1" "\"C:\Program Files\Google\Chrome\Application\chrome.exe\" --app=http://127.0.0.1:8000 --incognito"`
 >
 > **Dual Application Mode (Tabbed Container):**\
 > `dLabAppControl.exe --dual "Class1" "C:\path\to\app1.exe" "Class2" "C:\path\to\app2.exe"`\
-> `dLabAppControl.exe --dual "Class1" "app1.exe" "Class2" "app2.exe" --tab1="Camera" --tab2="Viewer"`
+> `dLabAppControl.exe --dual "Class1" "app1.exe" "Class2" "app2.exe" --tab1="Camera" --tab2="Viewer"`\
+> `dLabAppControl.exe --dual "Chrome_WidgetWin_1" "\"C:\Program Files\Google\Chrome\Application\chrome.exe\" --app=http://127.0.0.1:8000" "MozillaWindowClass" "\"C:\Program Files\Mozilla Firefox\firefox.exe\" --private-window"`
 >
 > **Advanced usage with custom close:**\
 > `dLabAppControl.exe "WindowClass" "app.exe" --close-button="Button2"`\
@@ -22,9 +24,6 @@ This single-instance AHK v2 script launches your lab Windows desktop control app
 > **Test mode (for debugging custom close methods):**\
 > `dLabAppControl.exe "LVWindow" "myVI.exe" --close-coords="330,484" --test`\
 > `dLabAppControl.exe "Notepad" "notepad.exe" --close-button="Button2" --test`
->
-> **Using AutoHotkey interpreter:**\
-> `"C:\Program Files\AutoHotkey\v2\AutoHotkey.exe" dLabAppControl.ahk "window ahk_class" "C:\path\to\app.exe"`
 
 ***
 
@@ -32,6 +31,8 @@ This single-instance AHK v2 script launches your lab Windows desktop control app
 
 * **Single & Dual Application Modes**\
   Run a single app or two apps side-by-side in a tabbed container with customizable tab titles.
+* **Command-Line Parameter Support**\
+  Launch applications with full command-line parameters (e.g., Chrome with --app, --incognito flags). Automatically detects simple paths vs. full commands.
 * **Single instance & CLI args**\
   Runs as a single instance and takes window class and app executable path arguments.
 * **Smart auto-startup**\
@@ -66,21 +67,24 @@ This single-instance AHK v2 script launches your lab Windows desktop control app
 1. Download `dLabAppControl.exe`.
 2.  Run with:
 
-    ```powershell
-    # Single app - Basic usage
-    .\dLabAppControl.exe "YourWindowClass" "C:\Path\To\LabControl.exe"
+    ```batch
+    REM Single app - Basic usage
+    dLabAppControl.exe "YourWindowClass" "C:\Path\To\LabControl.exe"
 
-    # Single app - With custom close button (ClassNN)
-    .\dLabAppControl.exe "Notepad" "C:\Windows\System32\notepad.exe" --close-button="Button2"
+    REM Single app - With command-line parameters
+    dLabAppControl.exe "Chrome_WidgetWin_1" "\"C:\Program Files\Google\Chrome\Application\chrome.exe\" --app=http://127.0.0.1:8000 --incognito"
 
-    # Single app - With custom close coordinates (LabVIEW/custom apps)
-    .\dLabAppControl.exe "LVWindow" "C:\Path\To\myVI.exe" --close-coords="330,484"
+    REM Single app - With custom close button (ClassNN)
+    dLabAppControl.exe "Notepad" "C:\Windows\System32\notepad.exe" --close-button="Button2"
+
+    REM Single app - With custom close coordinates (LabVIEW/custom apps)
+    dLabAppControl.exe "LVWindow" "C:\Path\To\myVI.exe" --close-coords="330,484"
     
-    # Dual app - Two apps in tabbed container
-    .\dLabAppControl.exe --dual "Class1" "C:\Path\To\app1.exe" "Class2" "C:\Path\To\app2.exe"
+    REM Dual app - Two apps in tabbed container
+    dLabAppControl.exe --dual "Class1" "C:\Path\To\app1.exe" "Class2" "C:\Path\To\app2.exe"
     
-    # Dual app - With custom tab titles
-    .\dLabAppControl.exe --dual "Class1" "app1.exe" "Class2" "app2.exe" --tab1="Camera" --tab2="Viewer"
+    REM Dual app - With parameters and custom tab titles
+    dLabAppControl.exe --dual "Chrome_WidgetWin_1" "\"C:\Program Files\Google\Chrome\Application\chrome.exe\" --app=http://127.0.0.1:8000" "MozillaWindowClass" "\"C:\Program Files\Mozilla Firefox\firefox.exe\" --private-window" --tab1="Web App" --tab2="Private Browser"
     ```
 
 #### **Option 2: Download and compile script**
@@ -89,16 +93,16 @@ This single-instance AHK v2 script launches your lab Windows desktop control app
 2. Place `dLabAppControl.ahk` and the `lib/` folder on the provider machine.
 3.  (Optional) Compile:
 
-    ```powershell
+    ```batch
     "C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe" /in "dLabAppControl.ahk" /out "dLabAppControl_v2.exe"
     ```
 4.  Run with:
 
-    ```powershell
-    # Single app mode
+    ```batch
+    REM Single app mode
     "C:\Program Files\AutoHotkey\v2\AutoHotkey.exe" dLabAppControl.ahk "YourWindowClass" "C:\Path\To\LabControl.exe"
     
-    # Dual app mode
+    REM Dual app mode
     "C:\Program Files\AutoHotkey\v2\AutoHotkey.exe" dLabAppControl.ahk --dual "Class1" "app1.exe" "Class2" "app2.exe"
     ```
 
@@ -116,6 +120,41 @@ This single-instance AHK v2 script launches your lab Windows desktop control app
 **Notes:**
 - Cannot use both `--close-button` and `--close-coords` at the same time
 - Custom close options only apply to single application mode
+
+#### **Command-Line Parameter Support**
+
+The script automatically detects whether you're providing a simple executable path or a full command with parameters.
+
+**Simple Path (paths with spaces MUST be quoted):**
+```batch
+REM Path without spaces - quotes optional but recommended
+dLabAppControl.exe "Notepad" "C:\Windows\System32\notepad.exe"
+
+REM Path WITH spaces - quotes REQUIRED
+dLabAppControl.exe "Chrome_WidgetWin_1" "C:\Program Files\Google\Chrome\Application\chrome.exe"
+```
+
+**Full Command with Parameters:**
+```batch
+REM CMD/Batch syntax - use backslash to escape inner quotes
+dLabAppControl.exe "Chrome_WidgetWin_1" "\"C:\Program Files\Google\Chrome\Application\chrome.exe\" --app=http://127.0.0.1:8000 --incognito"
+
+REM Firefox with private window
+dLabAppControl.exe "MozillaWindowClass" "\"C:\Program Files\Mozilla Firefox\firefox.exe\" --private-window"
+```
+
+**How it works:**
+- **Detection**: The script checks if the argument contains spaces and quotes to determine if it's a full command
+- **Validation**: Only the executable path is validated for existence; parameters are passed through unchanged
+- **Execution**: The full command string is passed to AutoHotkey's `Run()` function
+- **Compatibility**: Simple paths work exactly as before - no breaking changes
+
+**Important Rules:**
+1. **Paths with spaces MUST be quoted** - Windows will split unquoted paths at spaces
+2. **Commands with parameters need inner quotes** around the executable path
+3. **CMD/Batch**: Use `\"` (backslash-quote) to escape inner quotes
+4. **Guacamole Remote App**: Use regular quotes, no escaping needed
+   - Example: `Chrome_WidgetWin_1 "C:\Program Files\Google\Chrome\Application\chrome.exe" --app=http://127.0.0.1:8000 --incognito`
 
 ***
 
@@ -173,11 +212,11 @@ Run two applications side-by-side in a tabbed container window. **Requires** the
 - Any two related lab applications
 
 **Example:**
-```powershell
-# Basic dual mode (--dual flag required)
+```batch
+REM Basic dual mode (--dual flag required)
 dLabAppControl.exe --dual "CameraClass" "camera.exe" "ViewerClass" "viewer.exe"
 
-# With custom tab titles
+REM With custom tab titles
 dLabAppControl.exe --dual "DobotLab" "DobotLab.exe" "MozillaWindowClass" "firefox.exe" --tab1="Robot Control" --tab2="Web Interface"
 ```
 
@@ -185,11 +224,11 @@ dLabAppControl.exe --dual "DobotLab" "DobotLab.exe" "MozillaWindowClass" "firefo
 
 Test your custom close coordinates/controls before deployment:
 
-```powershell
-# Test coordinate-based close
+```batch
+REM Test coordinate-based close
 dLabAppControl.exe "LVWindow" "myVI.exe" --close-coords="330,484" --test
 
-# Test control-based close  
+REM Test control-based close  
 dLabAppControl.exe "Notepad" "notepad.exe" --close-button="Button2" --test
 ```
 
@@ -236,6 +275,41 @@ This setup provides:
 * ✅ **Automatic lifecycle management**: Apps start/stop with user sessions
 * ✅ **Enhanced security**: No access to underlying Windows system
 * ✅ **Seamless integration**: Works transparently with Guacamole's session management
+
+#### **Guacamole Remote App Configuration**
+
+When configuring dLabAppControl in Guacamole Remote App connections, use this syntax:
+
+**Remote Application Program:**
+```
+C:\Path\To\dLabAppControl.exe
+```
+
+**Remote Application Parameters (simple path):**
+```
+Chrome_WidgetWin_1 "C:\Program Files\Google\Chrome\Application\chrome.exe"
+```
+
+**Remote Application Parameters (with command-line arguments):**
+```
+Chrome_WidgetWin_1 "C:\Program Files\Google\Chrome\Application\chrome.exe" --app=http://127.0.0.1:8000 --incognito
+```
+
+**Important Notes for Guacamole:**
+- ✅ **Quote paths with spaces** - use regular double quotes
+- ❌ **Do NOT escape inner quotes** - Guacamole passes arguments directly without shell interpretation
+- ✅ **Parameters are space-separated** - each argument naturally separated
+- ✅ **Works with both single and dual mode** - use `--dual` flag as first parameter for dual mode
+
+**Example Guacamole Configurations:**
+
+*Single App - Chrome in kiosk mode:*
+- **Program**: `C:\LabApps\dLabAppControl.exe`
+- **Parameters**: `Chrome_WidgetWin_1 "C:\Program Files\Google\Chrome\Application\chrome.exe" --app=http://lab.example.com --kiosk`
+
+*Dual App - Camera + Viewer:*
+- **Program**: `C:\LabApps\dLabAppControl.exe`
+- **Parameters**: `--dual CameraClass "C:\LabApps\camera.exe" ViewerClass "C:\LabApps\viewer.exe" --tab1="Camera Control" --tab2="Live View"`
 
 ***
 

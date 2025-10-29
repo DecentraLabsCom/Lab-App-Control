@@ -26,20 +26,21 @@
 ; Single mode examples:
 ; dLabAppControl.exe "MozillaWindowClass" "C:\Program Files\Mozilla Firefox\firefox.exe"
 ; dLabAppControl.exe "Notepad++" "C:\Program Files (x86)\Notepad++\notepad++.exe"
+; dLabAppControl.exe "Chrome_WidgetWin_1" "\"C:\Program Files\Google\Chrome\Application\chrome.exe\" --app=http://127.0.0.1:8000 --incognito"
 ;
-; Dual mode example (combining the two above):
+; Dual mode example:
 ; dLabAppControl.exe --dual "MozillaWindowClass" "C:\Program Files\Mozilla Firefox\firefox.exe" "Notepad++" "C:\Program Files (x86)\Notepad++\notepad++.exe" --tab1="Firefox" --tab2="Notepad++"
 
 if (A_Args.Length < 2) {
-    MsgBox "Use: dLabAppControl.ahk [window_ahk_class] [C:\path\to\app.exe] [options]"
+    MsgBox "Use: dLabAppControl.exe [window_ahk_class] [C:\path\to\app.exe] [options]"
     . "`n`nSingle Application Mode:"
-    . "`n- dLabAppControl.ahk `"MozillaWindowClass`" `"C:\Program Files\Mozilla\firefox.exe`""
-    . "`n- dLabAppControl.ahk `"MyAppClass`" `"myapp.exe`" --close-button=`"Button2`""
-    . "`n- dLabAppControl.ahk `"LVDChild`" `"myVI.exe`" --close-coords=`"330,484`""
-    . "`n- dLabAppControl.ahk `"LVDChild`" `"myVI.exe`" --close-coords=`"330,484`" --test"
+    . "`n- dLabAppControl.exe `"MozillaWindowClass`" `"C:\Program Files\Mozilla\firefox.exe`""
+    . "`n- dLabAppControl.exe `"Chrome_WidgetWin_1`" `\`"C:\Program Files\Google\Chrome\Application\chrome.exe\`" --app=http://127.0.0.1:8000 --incognito`""
+    . "`n- dLabAppControl.exe `"MyAppClass`" `"myapp.exe`" --close-button=`"Button2`""
+    . "`n- dLabAppControl.exe `"LVDChild`" `"myVI.exe`" --close-coords=`"330,484`" --test"
     . "`n`nDual Application Mode (Tabbed Container):"
-    . "`n- dLabAppControl.ahk --dual `"Class1`" `"App1.exe`" `"Class2`" `"App2.exe`""
-    . "`n- dLabAppControl.ahk --dual `"Class1`" `"App1.exe`" `"Class2`" `"App2.exe`" --tab1=`"Camera`" --tab2=`"Viewer`""
+    . "`n- dLabAppControl.exe --dual `"Class1`" `"App1.exe`" `"Class2`" `"App2.exe`""
+    . "`n- dLabAppControl.exe --dual `"Class1`" `\`"App1.exe\`" --param1 value1`" `"Class2`" `\`"App2.exe\`" --param2 value2`" --tab1=`"Camera`" --tab2=`"Viewer`""
     . "`n- Both apps will be shown in tabs within a single container window"
     . "`n`nOptions:"
     . "`n  --dual                    Enable dual app mode (tabbed container)"
@@ -48,16 +49,34 @@ if (A_Args.Length < 2) {
     . "`n  --close-button=`"ClassNN`" Custom close button control (e.g., Button2)"
     . "`n  --close-coords=`"X,Y`"     Custom close coordinates in CLIENT space"
     . "`n  --test                    Test custom close method after 5 seconds"
-    . "`n`nCoordinate Guidelines (use WindowSpy):"
-    . "`n- Use CLIENT coordinates (not Screen or Window)"
+    . "`n`nApplication Commands:"
+    . "`n- Simple paths: C:\path\to\app.exe"
+    . "`n- With spaces and parameters: `\`"C:\my path\to\app.exe\`" --param1 value1 --param2 value2`""
+    . "`n- CMD: Use \`" to escape quotes."
+    . "`n- Guacamole Remote App: No escape needed."
+    . "`n  Example: Chrome_WidgetWin_1 `"C:\Program Files\Google\Chrome\Application\chrome.exe`" --app=http://127.0.0.1:8000"
+    . "`n`nCoordinate Guidelines (use CLIENT coordinates from WindowSpy):"
     . "`n- Example: --close-coords=`"330,484`" means 330 pixels right, 484 down from client area"
-    . "`n- CLIENT coordinates should be most reliable for LabVIEW/custom apps"
     ExitApp
 }
 
 ; ============================================================================
 ; MAIN ENTRY POINT - Argument Parsing & Mode Detection
 ; ============================================================================
+
+; Helper function to determine if an argument is a full command (with parameters) or just a path
+IsFullCommand(arg) {
+    ; If it contains spaces and looks like a command with parameters, treat as full command
+    ; Examples: "C:\path\to\app.exe --param value", "\"C:\path\to\app.exe\" --param value"
+    if (InStr(arg, " ") && (InStr(arg, ".exe") || InStr(arg, ".bat") || InStr(arg, ".cmd"))) {
+        return true
+    }
+    ; If it starts and ends with quotes and contains spaces inside, it's likely a full command
+    if (SubStr(arg, 1, 1) = '"' && SubStr(arg, -1) = '"' && InStr(SubStr(arg, 2, StrLen(arg) - 2), " ")) {
+        return true
+    }
+    return false
+}
 
 ; Parse optional parameters
 DUAL_APP_MODE := false
@@ -134,35 +153,42 @@ if (customCloseControl != "" && (customCloseX > 0 || customCloseY > 0)) {
 
 ; Parse arguments based on mode
 if (DUAL_APP_MODE) {
-    ; Dual app mode: class1 path1 class2 path2
+    ; Dual app mode: class1 command1 class2 command2
     if (positionalArgs.Length < 4) {
-        MsgBox "Error: Dual mode requires 4 arguments: class1 path1 class2 path2"
+        MsgBox "Error: Dual mode requires 4 arguments: class1 command1 class2 command2"
         ExitApp
     }
     
     windowClass := positionalArgs[1]
-    appPath     := positionalArgs[2]
+    appCommand := positionalArgs[2]
     windowClass2 := positionalArgs[3]
-    appPath2     := positionalArgs[4]
+    appCommand2 := positionalArgs[4]
     
-    Log("App 1: Class=" . windowClass . ", Path=" . appPath . ", Tab Title=" . tab1Title)
-    Log("App 2: Class=" . windowClass2 . ", Path=" . appPath2 . ", Tab Title=" . tab2Title)
+    ; Extract executable paths for validation and logging
+    appPath := IsFullCommand(appCommand) ? ExtractExecutablePath(appCommand) : appCommand
+    appPath2 := IsFullCommand(appCommand2) ? ExtractExecutablePath(appCommand2) : appCommand2
+    
+    Log("App 1: Class=" . windowClass . ", Command=" . appCommand . ", Tab Title=" . tab1Title)
+    Log("App 2: Class=" . windowClass2 . ", Command=" . appCommand2 . ", Tab Title=" . tab2Title)
     
     ; Launch dual app container with custom tab titles
-    CreateDualAppContainer(windowClass, appPath, windowClass2, appPath2, tab1Title, tab2Title)
+    CreateDualAppContainer(windowClass, appCommand, windowClass2, appCommand2, tab1Title, tab2Title)
     return  ; Container handles everything from here
     
 } else {
     ; Single app mode
     if (positionalArgs.Length < 2) {
-        MsgBox "Error: Single mode requires at least 2 arguments: class path"
+        MsgBox "Error: Single mode requires at least 2 arguments: class command"
         ExitApp
     }
     
     windowClass := positionalArgs[1]
-    appPath     := positionalArgs[2]
+    appCommand := positionalArgs[2]
     
-    Log("SINGLE APP MODE - Class: " . windowClass . ", Path: " . appPath)
+    ; Extract executable path for validation
+    appPath := IsFullCommand(appCommand) ? ExtractExecutablePath(appCommand) : appCommand
+    
+    Log("SINGLE APP MODE - Class: " . windowClass . ", Command: " . appCommand)
     if (CUSTOM_CLOSE_METHOD = "control") {
         Log("Custom close method: Button control '" . customCloseControl . "'")
     } else if (CUSTOM_CLOSE_METHOD = "coordinates") {
@@ -172,7 +198,7 @@ if (DUAL_APP_MODE) {
     }
     
     ; Launch single app mode
-    CreateSingleApp(windowClass, appPath)
+    CreateSingleApp(windowClass, appCommand)
     return  ; Single mode handles everything from here
 }
 
