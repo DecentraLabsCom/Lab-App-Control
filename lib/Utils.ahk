@@ -171,3 +171,62 @@ ExtractExecutablePath(command) {
     ; Single path, no parameters
     return command
 }
+
+; Auto-detect browsers and add kiosk/incognito flags if not present
+; Returns the command with flags added if applicable
+EnhanceBrowserCommand(command) {
+    global AUTO_BROWSER_KIOSK, BROWSER_KIOSK_FLAGS
+    
+    ; If auto-kiosk is disabled, return command unchanged
+    if (!AUTO_BROWSER_KIOSK) {
+        return command
+    }
+    
+    ; Extract executable path to identify the browser
+    exePath := ExtractExecutablePath(command)
+    SplitPath(exePath, &exeName)
+    exeNameLower := StrLower(exeName)
+    
+    ; Check if this is a known browser
+    if (!BROWSER_KIOSK_FLAGS.Has(exeNameLower)) {
+        return command  ; Not a browser, return unchanged
+    }
+    
+    ; Get the flags for this browser
+    browserFlags := BROWSER_KIOSK_FLAGS[exeNameLower]
+    
+    ; Check if kiosk-related flags are already present in the command
+    commandLower := StrLower(command)
+    hasKiosk := InStr(commandLower, "-kiosk") || InStr(commandLower, "--kiosk")
+    hasPrivate := InStr(commandLower, "-private") || InStr(commandLower, "--inprivate") || InStr(commandLower, "--incognito")
+    
+    ; If browser already has kiosk flags, don't add them
+    if (hasKiosk && hasPrivate) {
+        Log("Browser command already has kiosk/private flags - skipping auto-enhancement", "DEBUG")
+        return command
+    }
+    
+    ; Add the flags after the executable path
+    ; Handle both quoted and unquoted paths
+    if (SubStr(command, 1, 1) = '"') {
+        closeQuotePos := InStr(command, '"', , 2)
+        if (closeQuotePos > 0) {
+            ; Insert flags after the closing quote
+            enhancedCommand := SubStr(command, 1, closeQuotePos) . " " . browserFlags . SubStr(command, closeQuotePos + 1)
+        } else {
+            enhancedCommand := command . " " . browserFlags
+        }
+    } else {
+        ; No quotes - find first space or append to end
+        spacePos := InStr(command, " ")
+        if (spacePos > 0) {
+            enhancedCommand := SubStr(command, 1, spacePos - 1) . " " . browserFlags . SubStr(command, spacePos)
+        } else {
+            enhancedCommand := command . " " . browserFlags
+        }
+    }
+    
+    Log("Auto-enhanced browser command: " . exeName . " -> Added: " . browserFlags, "INFO")
+    return enhancedCommand
+}
+

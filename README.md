@@ -143,8 +143,41 @@ REM Firefox with private window
 dLabAppControl.exe "MozillaWindowClass" "\"C:\Program Files\Mozilla Firefox\firefox.exe\" --private-window"
 ```
 
+**Automatic Browser Kiosk Mode:**
+
+dLabAppControl automatically detects when you're launching a browser (Chrome, Edge, Firefox) and adds kiosk and private browsing flags **if they're not already present**. This simplifies deployment - you don't need to manually specify these flags in most cases.
+
+**Supported Browsers:**
+- **Chrome** (`chrome.exe`): Automatically adds `--kiosk --incognito`
+- **Edge** (`msedge.exe`): Automatically adds `--kiosk --inprivate`
+- **Firefox** (`firefox.exe`): Automatically adds `-kiosk -private-window`
+
+**Examples:**
+```batch
+REM This simple command...
+dLabAppControl.exe "Chrome_WidgetWin_1" "C:\Program Files\Google\Chrome\Application\chrome.exe"
+
+REM ...automatically becomes:
+REM dLabAppControl.exe "Chrome_WidgetWin_1" "C:\Program Files\Google\Chrome\Application\chrome.exe --kiosk --incognito"
+
+REM If you specify custom parameters, kiosk flags are still added (unless already present):
+dLabAppControl.exe "Chrome_WidgetWin_1" "\"C:\Program Files\Google\Chrome\Application\chrome.exe\" http://127.0.0.1:8000"
+REM Becomes: chrome.exe --kiosk --incognito http://127.0.0.1:8000
+
+REM If you already have kiosk flags, they won't be duplicated:
+dLabAppControl.exe "Chrome_WidgetWin_1" "\"C:\Program Files\Google\Chrome\Application\chrome.exe\" --kiosk http://127.0.0.1:8000"
+REM Stays unchanged (--kiosk already present)
+```
+
+**To disable automatic browser enhancement:**
+Edit `lib\Config.ahk` and set:
+```ahk
+global AUTO_BROWSER_KIOSK := false
+```
+
 **How it works:**
 - **Detection**: The script checks if the argument contains spaces and quotes to determine if it's a full command
+- **Browser Enhancement**: If enabled, browsers are detected by executable name and kiosk flags are automatically added
 - **Validation**: Only the executable path is validated for existence; parameters are passed through unchanged
 - **Execution**: The full command string is passed to AutoHotkey's `Run()` function
 - **Compatibility**: Simple paths work exactly as before - no breaking changes
@@ -160,7 +193,7 @@ dLabAppControl.exe "MozillaWindowClass" "\"C:\Program Files\Mozilla Firefox\fire
 
 ### ⚙️ Configuration
 
-The script includes several configuration constants that can be modified at the top of the file:
+The script includes several configuration constants that can be modified in `lib\Config.ahk`:
 
 #### **Core Settings**
 
@@ -169,6 +202,14 @@ The script includes several configuration constants that can be modified at the 
 * **`ACTIVATION_RETRIES`**: Number of retries for window activation when Groupy temporarily hides window (default: **5**)
 * **`CloseOnEventIds`**: RDP event IDs that trigger app closure (default: `[23, 24, 39, 40]`)
   * `23`: Logoff, `24`: Disconnect, `39`: Session disconnect, `40`: Reconnect
+
+#### **Browser Auto-Configuration**
+
+* **`AUTO_BROWSER_KIOSK`**: Automatically add kiosk and incognito flags to browsers (default: `true`)
+* **`BROWSER_KIOSK_FLAGS`**: Map of browser executables to their default kiosk flags
+  * Chrome: `--kiosk --incognito`
+  * Edge: `--kiosk --inprivate`
+  * Firefox: `-kiosk -private-window`
 
 #### **Debugging & Testing**
 

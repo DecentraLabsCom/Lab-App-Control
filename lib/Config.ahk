@@ -12,6 +12,14 @@ global VERBOSE_LOGGING  := false ; Set to true for detailed polling logs, false 
 global SILENT_ERRORS    := true  ; Set to true to suppress error MsgBox popups (log only)
 global PRODUCTION_MODE  := true ; Set to true to log only critical messages (errors, warnings, key events)
 
+; Browser auto-kiosk configuration
+global AUTO_BROWSER_KIOSK := true  ; Set to true to automatically add kiosk/incognito flags to browsers
+global BROWSER_KIOSK_FLAGS := Map(
+    "chrome.exe", "--kiosk --incognito",
+    "msedge.exe", "--kiosk --inprivate",
+    "firefox.exe", "-kiosk -private-window"
+)
+
 ; Global variables (initialized here to avoid errors in #HotIf)
 global app1Hwnd := 0
 global app2Hwnd := 0

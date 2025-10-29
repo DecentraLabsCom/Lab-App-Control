@@ -24,18 +24,18 @@
 ; ============================================================================
 
 ; Single mode examples:
-; dLabAppControl.exe "MozillaWindowClass" "C:\Program Files\Mozilla Firefox\firefox.exe"
-; dLabAppControl.exe "Notepad++" "C:\Program Files (x86)\Notepad++\notepad++.exe"
-; dLabAppControl.exe "Chrome_WidgetWin_1" "\"C:\Program Files\Google\Chrome\Application\chrome.exe\" --app=http://127.0.0.1:8000 --incognito"
+; dLabAppControl.exe "MozillaWindowClass" "\"C:\Program Files\Mozilla Firefox\firefox.exe\""
+; dLabAppControl.exe "Notepad++" "\"C:\Program Files (x86)\Notepad++\notepad++.exe\""
+; dLabAppControl.exe "Chrome_WidgetWin_1" "\"C:\Program Files\Google\Chrome\Application\chrome.exe\" http://www.google.com --kiosk --incognito"
 ;
 ; Dual mode example:
-; dLabAppControl.exe --dual "MozillaWindowClass" "C:\Program Files\Mozilla Firefox\firefox.exe" "Notepad++" "C:\Program Files (x86)\Notepad++\notepad++.exe" --tab1="Firefox" --tab2="Notepad++"
+; dLabAppControl.exe --dual "MozillaWindowClass" "\"C:\Program Files\Mozilla Firefox\firefox.exe\"" "Notepad++" "\"C:\Program Files (x86)\Notepad++\notepad++.exe\"" --tab1="Firefox" --tab2="Notepad++"
 
 if (A_Args.Length < 2) {
     MsgBox "Use: dLabAppControl.exe [window_ahk_class] [C:\path\to\app.exe] [options]"
     . "`n`nSingle Application Mode:"
-    . "`n- dLabAppControl.exe `"MozillaWindowClass`" `"C:\Program Files\Mozilla\firefox.exe`""
-    . "`n- dLabAppControl.exe `"Chrome_WidgetWin_1`" `\`"C:\Program Files\Google\Chrome\Application\chrome.exe\`" --app=http://127.0.0.1:8000 --incognito`""
+    . "`n- dLabAppControl.exe `"MozillaWindowClass`" `\`"C:\Program Files\Mozilla Firefox\firefox.exe\`""
+    . "`n- dLabAppControl.exe `"Chrome_WidgetWin_1`" `\`"C:\Program Files\Google\Chrome\Application\chrome.exe\`" http://127.0.0.1:8000 --kiosk --incognito`""
     . "`n- dLabAppControl.exe `"MyAppClass`" `"myapp.exe`" --close-button=`"Button2`""
     . "`n- dLabAppControl.exe `"LVDChild`" `"myVI.exe`" --close-coords=`"330,484`" --test"
     . "`n`nDual Application Mode (Tabbed Container):"
@@ -54,7 +54,7 @@ if (A_Args.Length < 2) {
     . "`n- With spaces and parameters: `\`"C:\my path\to\app.exe\`" --param1 value1 --param2 value2`""
     . "`n- CMD: Use \`" to escape quotes."
     . "`n- Guacamole Remote App: No escape needed."
-    . "`n  Example: Chrome_WidgetWin_1 `"C:\Program Files\Google\Chrome\Application\chrome.exe`" --app=http://127.0.0.1:8000"
+    . "`n  Example: Chrome_WidgetWin_1 `"C:\Program Files\Google\Chrome\Application\chrome.exe`" http://127.0.0.1:8000 --kiosk --incognito"
     . "`n`nCoordinate Guidelines (use CLIENT coordinates from WindowSpy):"
     . "`n- Example: --close-coords=`"330,484`" means 330 pixels right, 484 down from client area"
     ExitApp
@@ -164,6 +164,10 @@ if (DUAL_APP_MODE) {
     windowClass2 := positionalArgs[3]
     appCommand2 := positionalArgs[4]
     
+    ; Auto-enhance browser commands with kiosk/incognito flags
+    appCommand := EnhanceBrowserCommand(appCommand)
+    appCommand2 := EnhanceBrowserCommand(appCommand2)
+    
     ; Extract executable paths for validation and logging
     appPath := IsFullCommand(appCommand) ? ExtractExecutablePath(appCommand) : appCommand
     appPath2 := IsFullCommand(appCommand2) ? ExtractExecutablePath(appCommand2) : appCommand2
@@ -184,6 +188,9 @@ if (DUAL_APP_MODE) {
     
     windowClass := positionalArgs[1]
     appCommand := positionalArgs[2]
+    
+    ; Auto-enhance browser command with kiosk/incognito flags
+    appCommand := EnhanceBrowserCommand(appCommand)
     
     ; Extract executable path for validation
     appPath := IsFullCommand(appCommand) ? ExtractExecutablePath(appCommand) : appCommand
