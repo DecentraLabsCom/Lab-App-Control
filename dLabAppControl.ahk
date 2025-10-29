@@ -164,9 +164,8 @@ if (DUAL_APP_MODE) {
     windowClass2 := positionalArgs[3]
     appCommand2 := positionalArgs[4]
     
-    ; Auto-enhance browser commands with kiosk/incognito flags
-    appCommand := EnhanceBrowserCommand(appCommand)
-    appCommand2 := EnhanceBrowserCommand(appCommand2)
+    ; NOTE: Browser kiosk mode is NOT applied in dual mode
+    ; Kiosk mode would prevent apps from being embedded in the tab container
     
     ; Extract executable paths for validation and logging
     appPath := IsFullCommand(appCommand) ? ExtractExecutablePath(appCommand) : appCommand
@@ -174,6 +173,7 @@ if (DUAL_APP_MODE) {
     
     Log("App 1: Class=" . windowClass . ", Command=" . appCommand . ", Tab Title=" . tab1Title)
     Log("App 2: Class=" . windowClass2 . ", Command=" . appCommand2 . ", Tab Title=" . tab2Title)
+    Log("DUAL MODE: Browser kiosk auto-enhancement is disabled (apps must be embeddable)", "INFO")
     
     ; Launch dual app container with custom tab titles
     CreateDualAppContainer(windowClass, appCommand, windowClass2, appCommand2, tab1Title, tab2Title)
