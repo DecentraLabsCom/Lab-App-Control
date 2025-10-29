@@ -152,9 +152,10 @@ ExtractExecutablePath(command) {
     command := Trim(command)
     
     ; If command starts with a quote, find the matching closing quote
-    if (SubStr(command, 1, 1) = '"') {
+    quote := Chr(34)  ; Double quote character
+    if (SubStr(command, 1, 1) = quote) {
         ; Find the closing quote
-        closeQuotePos := InStr(command, '"', , 2)  ; Find second occurrence of "
+        closeQuotePos := InStr(command, quote, , 2)  ; Find second occurrence of "
         if (closeQuotePos > 1) {
             ; Extract path between quotes
             return SubStr(command, 2, closeQuotePos - 2)
@@ -200,19 +201,31 @@ EnhanceBrowserCommand(command) {
     hasKiosk := InStr(commandLower, "-kiosk") || InStr(commandLower, "--kiosk")
     hasPrivate := InStr(commandLower, "-private") || InStr(commandLower, "--inprivate") || InStr(commandLower, "--incognito")
     
-    ; If browser already has kiosk flags, don't add them
-    if (hasKiosk && hasPrivate) {
-        Log("Browser command already has kiosk/private flags - skipping auto-enhancement", "DEBUG")
+    ; If browser already has ANY kiosk/private browsing flags, don't auto-enhance
+    ; This prevents duplicates and respects user's explicit configuration
+    if (hasKiosk || hasPrivate) {
+        Log("Browser command already has kiosk or private browsing flags - skipping auto-enhancement", "DEBUG")
         return command
     }
     
     ; Add the flags after the executable path
     ; Handle both quoted and unquoted paths
-    if (SubStr(command, 1, 1) = '"') {
-        closeQuotePos := InStr(command, '"', , 2)
+    quote := Chr(34)  ; Double quote character
+    if (SubStr(command, 1, 1) = quote) {
+        closeQuotePos := InStr(command, quote, , 2)
         if (closeQuotePos > 0) {
+            ; Get the part after the closing quote (if any)
+            afterQuote := SubStr(command, closeQuotePos + 1)
+            afterQuote := Trim(afterQuote)  ; Remove leading/trailing spaces
+            
             ; Insert flags after the closing quote
-            enhancedCommand := SubStr(command, 1, closeQuotePos) . " " . browserFlags . SubStr(command, closeQuotePos + 1)
+            if (afterQuote != "") {
+                ; There are existing parameters after the quoted path
+                enhancedCommand := SubStr(command, 1, closeQuotePos) . " " . browserFlags . " " . afterQuote
+            } else {
+                ; No parameters after the quoted path
+                enhancedCommand := SubStr(command, 1, closeQuotePos) . " " . browserFlags
+            }
         } else {
             enhancedCommand := command . " " . browserFlags
         }
@@ -220,7 +233,16 @@ EnhanceBrowserCommand(command) {
         ; No quotes - find first space or append to end
         spacePos := InStr(command, " ")
         if (spacePos > 0) {
-            enhancedCommand := SubStr(command, 1, spacePos - 1) . " " . browserFlags . SubStr(command, spacePos)
+            ; Get the part after the first space
+            afterSpace := SubStr(command, spacePos + 1)
+            afterSpace := Trim(afterSpace)
+            
+            ; Insert flags after the executable
+            if (afterSpace != "") {
+                enhancedCommand := SubStr(command, 1, spacePos - 1) . " " . browserFlags . " " . afterSpace
+            } else {
+                enhancedCommand := SubStr(command, 1, spacePos - 1) . " " . browserFlags
+            }
         } else {
             enhancedCommand := command . " " . browserFlags
         }
@@ -229,4 +251,3 @@ EnhanceBrowserCommand(command) {
     Log("Auto-enhanced browser command: " . exeName . " -> Added: " . browserFlags, "INFO")
     return enhancedCommand
 }
-

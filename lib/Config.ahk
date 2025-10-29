@@ -10,7 +10,7 @@ global STARTUP_TIMEOUT  := 6     ; Startup timeout in seconds
 global ACTIVATION_RETRIES := 3   ; Number of retries for window activation
 global VERBOSE_LOGGING  := false ; Set to true for detailed polling logs, false for events only
 global SILENT_ERRORS    := true  ; Set to true to suppress error MsgBox popups (log only)
-global PRODUCTION_MODE  := true ; Set to true to log only critical messages (errors, warnings, key events)
+global PRODUCTION_MODE  := false ; Set to true to log only critical messages (errors, warnings, key events)
 
 ; Browser auto-kiosk configuration
 global AUTO_BROWSER_KIOSK := true  ; Set to true to automatically add kiosk/incognito flags to browsers

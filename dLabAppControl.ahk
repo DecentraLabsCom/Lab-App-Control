@@ -23,40 +23,44 @@
 ; HELP & USAGE
 ; ============================================================================
 
-; Single mode examples:
+; Single mode examples (CMD/Batch syntax):
 ; dLabAppControl.exe "MozillaWindowClass" "\"C:\Program Files\Mozilla Firefox\firefox.exe\""
 ; dLabAppControl.exe "Notepad++" "\"C:\Program Files (x86)\Notepad++\notepad++.exe\""
-; dLabAppControl.exe "Chrome_WidgetWin_1" "\"C:\Program Files\Google\Chrome\Application\chrome.exe\" http://www.google.com --kiosk --incognito"
+; dLabAppControl.exe "Chrome_WidgetWin_1" "\"C:\Program Files\Google\Chrome\Application\chrome.exe\" --app=http://www.google.com"
+; (Note: Browser auto-kiosk will add --kiosk --incognito automatically)
+; dLabAppControl.exe "Notepad++" "\"C:\Program Files (x86)\Notepad++\notepad++.exe\" test.txt" @test
 ;
-; Dual mode example:
-; dLabAppControl.exe --dual "MozillaWindowClass" "\"C:\Program Files\Mozilla Firefox\firefox.exe\"" "Notepad++" "\"C:\Program Files (x86)\Notepad++\notepad++.exe\"" --tab1="Firefox" --tab2="Notepad++"
+; Dual mode example (CMD/Batch syntax):
+; dLabAppControl.exe @dual "MozillaWindowClass" "\"C:\Program Files\Mozilla Firefox\firefox.exe\"" "Notepad++" "\"C:\Program Files (x86)\Notepad++\notepad++.exe\"" @tab1="Firefox" @tab2="Notepad++"
+; (Note: Browser auto-kiosk is disabled in dual mode)
 
 if (A_Args.Length < 2) {
-    MsgBox "Use: dLabAppControl.exe [window_ahk_class] [C:\path\to\app.exe] [options]"
+    MsgBox "Use: dLabAppControl.exe [window_ahk_class] [C:\path\to\app.exe] [@options]"
     . "`n`nSingle Application Mode:"
     . "`n- dLabAppControl.exe `"MozillaWindowClass`" `\`"C:\Program Files\Mozilla Firefox\firefox.exe\`""
-    . "`n- dLabAppControl.exe `"Chrome_WidgetWin_1`" `\`"C:\Program Files\Google\Chrome\Application\chrome.exe\`" http://127.0.0.1:8000 --kiosk --incognito`""
-    . "`n- dLabAppControl.exe `"MyAppClass`" `"myapp.exe`" --close-button=`"Button2`""
-    . "`n- dLabAppControl.exe `"LVDChild`" `"myVI.exe`" --close-coords=`"330,484`" --test"
+    . "`n- dLabAppControl.exe `"Chrome_WidgetWin_1`" `\`"C:\Program Files\Google\Chrome\Application\chrome.exe\`" http://127.0.0.1:8000`""
+    . "`n- dLabAppControl.exe `"Notepad++`" `\`"notepad++.exe\`" test.txt --myParam`" @test"
+    . "`n- dLabAppControl.exe `"MyAppClass`" `"myapp.exe`" @close-button=`"Button2`""
+    . "`n- dLabAppControl.exe `"LVDChild`" `"myVI.exe`" @close-coords=`"330,484`" @test"
     . "`n`nDual Application Mode (Tabbed Container):"
-    . "`n- dLabAppControl.exe --dual `"Class1`" `"App1.exe`" `"Class2`" `"App2.exe`""
-    . "`n- dLabAppControl.exe --dual `"Class1`" `\`"App1.exe\`" --param1 value1`" `"Class2`" `\`"App2.exe\`" --param2 value2`" --tab1=`"Camera`" --tab2=`"Viewer`""
-    . "`n- Both apps will be shown in tabs within a single container window"
-    . "`n`nOptions:"
-    . "`n  --dual                    Enable dual app mode (tabbed container)"
-    . "`n  --tab1=`"Title`"           Custom title for first tab (dual mode only)"
-    . "`n  --tab2=`"Title`"           Custom title for second tab (dual mode only)"
-    . "`n  --close-button=`"ClassNN`" Custom close button control (e.g., Button2)"
-    . "`n  --close-coords=`"X,Y`"     Custom close coordinates in CLIENT space"
-    . "`n  --test                    Test custom close method after 5 seconds"
+    . "`n- dLabAppControl.exe @dual `"Class1`" `"App1.exe`" `"Class2`" `"App2.exe`""
+    . "`n- dLabAppControl.exe @dual `"Class1`" `\`"App1.exe\`" --param1 value1`" `"Class2`" `\`"App2.exe\`" --param2 value2`" @tab1=`"Camera`" @tab2=`"Viewer`""
+    . "`n- Both apps shown in tabs within a single container window"
+    . "`n`nOptions (use @ prefix to avoid conflicts with app parameters):"
+    . "`n  @dual                    Enable dual app mode (tabbed container)"
+    . "`n  @tab1=`"Title`"           Custom title for first tab (dual mode only)"
+    . "`n  @tab2=`"Title`"           Custom title for second tab (dual mode only)"
+    . "`n  @close-button=`"ClassNN`" Custom close button control (e.g., Button2)"
+    . "`n  @close-coords=`"X,Y`"     Custom close coordinates in CLIENT space"
+    . "`n  @test                    Test custom close method after 5 seconds"
     . "`n`nApplication Commands:"
     . "`n- Simple paths: C:\path\to\app.exe"
-    . "`n- With spaces and parameters: `\`"C:\my path\to\app.exe\`" --param1 value1 --param2 value2`""
-    . "`n- CMD: Use \`" to escape quotes."
-    . "`n- Guacamole Remote App: No escape needed."
-    . "`n  Example: Chrome_WidgetWin_1 `"C:\Program Files\Google\Chrome\Application\chrome.exe`" http://127.0.0.1:8000 --kiosk --incognito"
+    . "`n- With spaces and parameters: `\`"C:\my path\to\app.exe\`" --param1 value1`""
+    . "`n- App params can use -- freely (only @ is for dLabAppControl options)"
+    . "`n- CMD: Use \`" to escape quotes"
+    . "`n- Guacamole: Chrome_WidgetWin_1 `"C:\...\chrome.exe`" --app=http://url @test"
     . "`n`nCoordinate Guidelines (use CLIENT coordinates from WindowSpy):"
-    . "`n- Example: --close-coords=`"330,484`" means 330 pixels right, 484 down from client area"
+    . "`n- Example: @close-coords=`"330,484`" means 330 pixels right, 484 down from client area"
     ExitApp
 }
 
@@ -66,13 +70,12 @@ if (A_Args.Length < 2) {
 
 ; Helper function to determine if an argument is a full command (with parameters) or just a path
 IsFullCommand(arg) {
-    ; If it contains spaces and looks like a command with parameters, treat as full command
-    ; Examples: "C:\path\to\app.exe --param value", "\"C:\path\to\app.exe\" --param value"
+    ; If it contains spaces and an executable extension, likely a command with parameters
+    ; Examples: 
+    ; - "C:\path\to\app.exe --param value"
+    ; - "\"C:\path\to\app.exe\" --param value"
+    ; - "C:\Program Files\app.exe" https://url.com
     if (InStr(arg, " ") && (InStr(arg, ".exe") || InStr(arg, ".bat") || InStr(arg, ".cmd"))) {
-        return true
-    }
-    ; If it starts and ends with quotes and contains spaces inside, it's likely a full command
-    if (SubStr(arg, 1, 1) = '"' && SubStr(arg, -1) = '"' && InStr(SubStr(arg, 2, StrLen(arg) - 2), " ")) {
         return true
     }
     return false
@@ -91,40 +94,52 @@ global customCloseY := 0
 global TEST_MODE := false
 global CUSTOM_CLOSE_METHOD := "none"
 
-; First pass: extract options and collect positional arguments
+; Log all received arguments for debugging
+Log("==== RECEIVED ARGUMENTS ====")
+Log("Total arguments: " . A_Args.Length)
 for index, arg in A_Args {
-    if (SubStr(arg, 1, 2) = "--") {
-        ; This is an option
+    Log("Arg[" . index . "]: '" . arg . "'")
+}
+Log("============================")
+
+; First pass: extract options (prefixed with @) and collect positional arguments
+for index, arg in A_Args {
+    if (SubStr(arg, 1, 1) = "@") {
+        ; This is a dLabAppControl option (prefixed with @)
         argLower := StrLower(arg)
         
-        if (argLower = "--dual") {
+        if (argLower = "@dual") {
             DUAL_APP_MODE := true
-            Log("--dual flag detected - Dual app mode enabled")
-        } else if (argLower = "--test") {
+            Log("@dual flag detected - Dual app mode enabled")
+        } else if (argLower = "@test") {
             TEST_MODE := true
-            Log("--test flag detected - Test mode enabled")
-        } else if (SubStr(arg, 1, 7) = "--tab1=") {
-            tab1Title := SubStr(arg, 8)
-            if (SubStr(tab1Title, 1, 1) = '"' && SubStr(tab1Title, -1) = '"') {
+            Log("@test flag detected - Test mode enabled")
+        } else if (SubStr(argLower, 1, 6) = "@tab1=") {
+            tab1Title := SubStr(arg, 7)
+            quote := Chr(34)
+            if (SubStr(tab1Title, 1, 1) = quote && SubStr(tab1Title, -1) = quote) {
                 tab1Title := SubStr(tab1Title, 2, StrLen(tab1Title) - 2)
             }
             Log("Custom tab 1 title: " . tab1Title)
-        } else if (SubStr(arg, 1, 7) = "--tab2=") {
-            tab2Title := SubStr(arg, 8)
-            if (SubStr(tab2Title, 1, 1) = '"' && SubStr(tab2Title, -1) = '"') {
+        } else if (SubStr(argLower, 1, 6) = "@tab2=") {
+            tab2Title := SubStr(arg, 7)
+            quote := Chr(34)
+            if (SubStr(tab2Title, 1, 1) = quote && SubStr(tab2Title, -1) = quote) {
                 tab2Title := SubStr(tab2Title, 2, StrLen(tab2Title) - 2)
             }
             Log("Custom tab 2 title: " . tab2Title)
-        } else if (SubStr(arg, 1, 15) = "--close-button=") {
-            customCloseControl := SubStr(arg, 16)
-            if (SubStr(customCloseControl, 1, 1) = '"' && SubStr(customCloseControl, -1) = '"') {
+        } else if (SubStr(argLower, 1, 14) = "@close-button=") {
+            customCloseControl := SubStr(arg, 15)
+            quote := Chr(34)
+            if (SubStr(customCloseControl, 1, 1) = quote && SubStr(customCloseControl, -1) = quote) {
                 customCloseControl := SubStr(customCloseControl, 2, StrLen(customCloseControl) - 2)
             }
             CUSTOM_CLOSE_METHOD := "control"
             Log("Custom close button: " . customCloseControl)
-        } else if (SubStr(arg, 1, 15) = "--close-coords=") {
-            coordsStr := SubStr(arg, 16)
-            if (SubStr(coordsStr, 1, 1) = '"' && SubStr(coordsStr, -1) = '"') {
+        } else if (SubStr(argLower, 1, 14) = "@close-coords=") {
+            coordsStr := SubStr(arg, 15)
+            quote := Chr(34)
+            if (SubStr(coordsStr, 1, 1) = quote && SubStr(coordsStr, -1) = quote) {
                 coordsStr := SubStr(coordsStr, 2, StrLen(coordsStr) - 2)
             }
             ; Parse X,Y coordinates
@@ -135,19 +150,21 @@ for index, arg in A_Args {
                 CUSTOM_CLOSE_METHOD := "coordinates"
                 Log("Custom close coordinates: " . customCloseX . "," . customCloseY)
             } else {
-                MsgBox("Error: --close-coords must be in format X,Y (e.g., --close-coords=`"330,484`")", "Invalid Coordinates", 16)
+                MsgBox("Error: @close-coords must be in format X,Y (e.g., @close-coords=`"330,484`")", "Invalid Coordinates", 16)
                 ExitApp(1)
             }
+        } else {
+            Log("WARNING: Unknown option: " . arg . " - ignoring")
         }
     } else {
-        ; This is a positional argument
+        ; This is a positional argument (window class, app command, or app parameters)
         positionalArgs.Push(arg)
     }
 }
 
 ; Validate custom close parameters
 if (customCloseControl != "" && (customCloseX > 0 || customCloseY > 0)) {
-    MsgBox("Error: Cannot use both --close-button and --close-coords at the same time", "Invalid Parameters", 16)
+    MsgBox("Error: Cannot use both @close-button and @close-coords at the same time", "Invalid Parameters", 16)
     ExitApp(1)
 }
 
@@ -163,6 +180,39 @@ if (DUAL_APP_MODE) {
     appCommand := positionalArgs[2]
     windowClass2 := positionalArgs[3]
     appCommand2 := positionalArgs[4]
+    
+    ; Reconstruct commands if there are additional arguments beyond the basic 4
+    ; This handles cases where Guacamole might split application parameters
+    if (positionalArgs.Length > 4) {
+        Log("Additional arguments in dual mode - may need reconstruction")
+        
+        quote := Chr(34)
+        ; Check if appCommand needs quoting (has spaces but no quotes)
+        if (InStr(appCommand, " ") && SubStr(appCommand, 1, 1) != quote) {
+            appCommand := quote . appCommand . quote
+            Log("Quoted app1 executable path: " . appCommand)
+        }
+        
+        ; Collect extra arguments - they could belong to either app
+        ; Strategy: Assume extra args belong to app2 if we can't determine otherwise
+        Loop positionalArgs.Length - 4 {
+            argIndex := 4 + A_Index
+            appCommand2 .= " " . positionalArgs[argIndex]
+            Log("Added argument to App2 [" . argIndex . "]: " . positionalArgs[argIndex])
+        }
+        
+        ; Check if appCommand2 needs quoting
+        if (InStr(appCommand2, " ") && SubStr(appCommand2, 1, 1) != quote) {
+            ; Extract base path and parameters
+            parts := StrSplit(appCommand2, " ", , 2)
+            if (parts.Length >= 1) {
+                appCommand2 := quote . parts[1] . quote . (parts.Length > 1 ? " " . parts[2] : "")
+                Log("Quoted app2 executable path: " . appCommand2)
+            }
+        }
+        
+        Log("Reconstructed App2 command: " . appCommand2)
+    }
     
     ; NOTE: Browser kiosk mode is NOT applied in dual mode
     ; Kiosk mode would prevent apps from being embedded in the tab container
@@ -188,6 +238,29 @@ if (DUAL_APP_MODE) {
     
     windowClass := positionalArgs[1]
     appCommand := positionalArgs[2]
+    
+    ; Reconstruct command if there are additional arguments (e.g., from Guacamole)
+    ; Guacamole splits: Chrome_WidgetWin_1 "C:\Program Files\app.exe" https://url.com
+    ; Into: Arg[1]=Chrome_WidgetWin_1, Arg[2]=C:\Program Files\app.exe, Arg[3]=https://url.com
+    if (positionalArgs.Length > 2) {
+        Log("Additional arguments detected - reconstructing command from " . positionalArgs.Length . " parts")
+        
+        quote := Chr(34)
+        ; Quote the executable path if it contains spaces
+        if (InStr(appCommand, " ")) {
+            appCommand := quote . appCommand . quote
+            Log("Quoted executable path: " . appCommand)
+        }
+        
+        ; Append all remaining arguments
+        Loop positionalArgs.Length - 2 {
+            argIndex := 2 + A_Index
+            appCommand .= " " . positionalArgs[argIndex]
+            Log("Added argument [" . argIndex . "]: " . positionalArgs[argIndex])
+        }
+        
+        Log("Reconstructed full command: " . appCommand)
+    }
     
     ; Auto-enhance browser command with kiosk/incognito flags
     appCommand := EnhanceBrowserCommand(appCommand)
