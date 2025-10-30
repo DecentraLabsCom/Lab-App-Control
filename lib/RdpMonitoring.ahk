@@ -137,10 +137,13 @@ OnQueryEndSession(wParam, lParam, msg, hwnd) {
 
 ; Setup RDP event monitoring (used by both modes)
 SetupRdpMonitoring(hwnd) {
-    global POLL_INTERVAL_MS, lastId
+    global POLL_INTERVAL_MS, lastId, WTS_NOTIFICATIONS_ACTIVE
     
     ; Register for session notifications
     if DllCall("Wtsapi32\WTSRegisterSessionNotification", "ptr", hwnd, "uint", 0, "int") {
+        global WTS_NOTIFICATIONS_ACTIVE
+        WTS_NOTIFICATIONS_ACTIVE := true
+        SetTimer(CheckSessionEvents, 0)  ; Disable any residual polling
         OnMessage(0x02B1, OnSessionChange)
         OnMessage(0x0011, OnQueryEndSession)
         OnExit((*) => (
@@ -148,12 +151,14 @@ SetupRdpMonitoring(hwnd) {
             OnMessage(0x02B1, OnSessionChange, 0),
             OnMessage(0x0011, OnQueryEndSession, 0)
         ))
-        Log("Registered for WM_WTSSESSION_CHANGE / WM_QUERYENDSESSION notifications", "DEBUG")
+        Log("Registered for WM_WTSSESSION_CHANGE / WM_QUERYENDSESSION notifications - polling disabled", "DEBUG")
     } else {
-        Log("WARNING: Could not register for session notifications", "WARNING")
+        global WTS_NOTIFICATIONS_ACTIVE
+        WTS_NOTIFICATIONS_ACTIVE := false
+        Log("WARNING: Could not register for session notifications - falling back to polling", "WARNING")
+        
+        ; Initialize polling as fallback
+        lastId := 0
+        SetTimer(CheckSessionEvents, POLL_INTERVAL_MS)
     }
-    
-    ; Initialize polling as fallback
-    lastId := 0
-    SetTimer(CheckSessionEvents, POLL_INTERVAL_MS)
 }

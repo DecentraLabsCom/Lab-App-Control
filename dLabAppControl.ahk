@@ -6,8 +6,8 @@
 ; ============================================================================
 
 #SingleInstance Force
-; #Requires AutoHotkey v2.0
-; ProcessSetPriority "High"
+#Requires AutoHotkey v2.0
+ProcessSetPriority "High"
 
 ; ============================================================================
 ; LOAD MODULES
