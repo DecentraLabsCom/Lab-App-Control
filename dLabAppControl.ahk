@@ -180,13 +180,13 @@ if (DUAL_APP_MODE) {
     appCommand := positionalArgs[2]
     windowClass2 := positionalArgs[3]
     appCommand2 := positionalArgs[4]
+    quote := Chr(34)
     
     ; Reconstruct commands if there are additional arguments beyond the basic 4
     ; This handles cases where Guacamole might split application parameters
     if (positionalArgs.Length > 4) {
         Log("Additional arguments in dual mode - may need reconstruction")
-        
-        quote := Chr(34)
+
         ; Check if appCommand needs quoting (has spaces but no quotes)
         if (InStr(appCommand, " ") && SubStr(appCommand, 1, 1) != quote) {
             appCommand := quote . appCommand . quote
@@ -213,6 +213,16 @@ if (DUAL_APP_MODE) {
         
         Log("Reconstructed App2 command: " . appCommand2)
     }
+
+    ; Ensure simple paths with spaces stay quoted when no extra parameters were provided
+    if (InStr(appCommand, " ") && SubStr(appCommand, 1, 1) != quote) {
+        appCommand := quote . appCommand . quote
+        Log("Auto-quoted App1 executable path (dual mode): " . appCommand)
+    }
+    if (InStr(appCommand2, " ") && SubStr(appCommand2, 1, 1) != quote) {
+        appCommand2 := quote . appCommand2 . quote
+        Log("Auto-quoted App2 executable path (dual mode): " . appCommand2)
+    }
     
     ; NOTE: Browser kiosk mode is NOT applied in dual mode
     ; Kiosk mode would prevent apps from being embedded in the tab container
@@ -238,6 +248,7 @@ if (DUAL_APP_MODE) {
     
     windowClass := positionalArgs[1]
     appCommand := positionalArgs[2]
+    quote := Chr(34)
     
     ; Reconstruct command if there are additional arguments (e.g., from Guacamole)
     ; Guacamole splits: Chrome_WidgetWin_1 "C:\Program Files\app.exe" https://url.com
@@ -245,7 +256,6 @@ if (DUAL_APP_MODE) {
     if (positionalArgs.Length > 2) {
         Log("Additional arguments detected - reconstructing command from " . positionalArgs.Length . " parts")
         
-        quote := Chr(34)
         ; Quote the executable path if it contains spaces
         if (InStr(appCommand, " ")) {
             appCommand := quote . appCommand . quote
@@ -260,6 +270,13 @@ if (DUAL_APP_MODE) {
         }
         
         Log("Reconstructed full command: " . appCommand)
+    }
+
+    ; For simple two-argument invocations, Windows strips the grouping quotes.
+    ; Re-wrap any spaced path so later enhancements (kiosk flags) don't break it.
+    if (InStr(appCommand, " ") && SubStr(appCommand, 1, 1) != quote) {
+        appCommand := quote . appCommand . quote
+        Log("Auto-quoted executable path (single mode): " . appCommand)
     }
     
     ; Auto-enhance browser command with kiosk/incognito flags
