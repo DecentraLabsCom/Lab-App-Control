@@ -93,9 +93,13 @@ jobs:
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
           $outFile = Join-Path $outDir 'dLabAppControl.exe'
           $compilerDir = Split-Path -Parent $compiler
+          Write-Host "Compiler: $compiler"
+          Write-Host "Script: $scriptPath"
+          Write-Host "Output: $outFile"
           Push-Location $compilerDir
           try {
-            & $compiler /in $scriptPath /out $outFile
+            $arguments = @('/in', $scriptPath, '/out', $outFile)
+            & $compiler @arguments
             $exitCode = $LASTEXITCODE
             if ($null -eq $exitCode) {
               $exitCode = 0
