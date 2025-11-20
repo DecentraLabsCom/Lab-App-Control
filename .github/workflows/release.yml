@@ -5,6 +5,10 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to rebuild"
+        required: true
 
 permissions:
   contents: write
@@ -13,8 +17,33 @@ jobs:
   build-and-release:
     runs-on: windows-latest
     steps:
+      - name: Resolve release ref
+        id: release_meta
+        shell: powershell
+        run: |
+          $event = "${{ github.event_name }}"
+          $refType = "${{ github.ref_type }}"
+          $ref = "${{ github.ref }}"
+          $tag = "${{ github.ref_name }}"
+
+          if ($event -eq "workflow_dispatch") {
+            $inputTag = "${{ inputs.tag }}".Trim()
+            if ([string]::IsNullOrWhiteSpace($inputTag)) {
+              throw 'workflow_dispatch requires the "tag" input'
+            }
+            $tag = $inputTag
+            $ref = "refs/tags/$inputTag"
+          } elseif ($refType -ne "tag") {
+            throw "Release workflow must run from a tag ref (current: $ref)"
+          }
+
+          "ref=$ref" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "tag=$tag" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release_meta.outputs.ref }}
 
       - name: Install AutoHotkey (runtime)
         shell: powershell
@@ -61,7 +90,14 @@ jobs:
           }
           $outDir = "dist"
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-          & $compiler /in dLabAppControl.ahk /out "$outDir/dLabAppControl.exe"
+          $outFile = Join-Path $outDir 'dLabAppControl.exe'
+          & $compiler /in dLabAppControl.ahk /out $outFile
+          if ($LASTEXITCODE -ne 0) {
+            throw "Ahk2Exe exited with code $LASTEXITCODE"
+          }
+          if (-not (Test-Path $outFile)) {
+            throw "Expected output missing: $outFile"
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -73,5 +109,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/dLabAppControl.exe
+          tag_name: ${{ steps.release_meta.outputs.tag }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
