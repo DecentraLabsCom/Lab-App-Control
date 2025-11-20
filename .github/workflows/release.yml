@@ -35,31 +35,28 @@ jobs:
 
           if ($Env:ProgramFiles) {
             Add-IfExists (Join-Path -Path $Env:ProgramFiles -ChildPath 'AutoHotkey')
+            Add-IfExists (Join-Path -Path $Env:ProgramFiles -ChildPath 'AutoHotkey\Compiler')
             Add-IfExists (Join-Path -Path $Env:ProgramFiles -ChildPath 'AutoHotkey\v2')
+            Add-IfExists (Join-Path -Path $Env:ProgramFiles -ChildPath 'AutoHotkey\v2\Compiler')
           }
 
           if (${Env:ProgramFiles(x86)}) {
             Add-IfExists (Join-Path -Path ${Env:ProgramFiles(x86)} -ChildPath 'AutoHotkey')
+            Add-IfExists (Join-Path -Path ${Env:ProgramFiles(x86)} -ChildPath 'AutoHotkey\Compiler')
             Add-IfExists (Join-Path -Path ${Env:ProgramFiles(x86)} -ChildPath 'AutoHotkey\v2')
+            Add-IfExists (Join-Path -Path ${Env:ProgramFiles(x86)} -ChildPath 'AutoHotkey\v2\Compiler')
           }
 
           if ($Env:ChocolateyInstall) {
-            Add-IfExists (Join-Path -Path $Env:ChocolateyInstall -ChildPath 'lib/autohotkey')
+            Add-IfExists (Join-Path -Path $Env:ChocolateyInstall -ChildPath 'lib')
           }
 
           if (-not $searchRoots -or $searchRoots.Count -eq 0) {
             throw "No AutoHotkey install directories found via ProgramFiles/Chocolatey"
           }
 
-          $compiler = $null
-          foreach ($root in $searchRoots) {
-            $match = Get-ChildItem -Path $root -Filter 'Ahk2Exe.exe' -Recurse -ErrorAction SilentlyContinue |
-              Select-Object -First 1
-            if ($match) {
-              $compiler = $match.FullName
-              break
-            }
-          }
+          $compiler = Get-ChildItem -Path $searchRoots -Filter 'Ahk2Exe.exe' -Recurse -File -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty FullName -First 1
 
           if (-not $compiler) {
             throw "Ahk2Exe compiler not found under: $($searchRoots -join ', ')"
