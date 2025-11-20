@@ -20,12 +20,41 @@ jobs:
         shell: powershell
         run: choco install autohotkey --no-progress --yes
 
+      - name: Locate Ahk2Exe compiler
+        id: locate-compiler
+        shell: powershell
+        run: |
+          $searchRoots = @(
+            Join-Path $Env:ProgramFiles 'AutoHotkey',
+            Join-Path ${Env:ProgramFiles(x86)} 'AutoHotkey',
+            Join-Path $Env:ProgramFiles 'AutoHotkey/v2',
+            Join-Path ${Env:ProgramFiles(x86)} 'AutoHotkey/v2',
+            Join-Path $Env:ChocolateyInstall 'lib/autohotkey'
+          ) | Where-Object { $_ -and (Test-Path $_) }
+
+          $compiler = $null
+          foreach ($root in $searchRoots) {
+            $match = Get-ChildItem -Path $root -Filter 'Ahk2Exe.exe' -Recurse -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+            if ($match) {
+              $compiler = $match.FullName
+              break
+            }
+          }
+
+          if (-not $compiler) {
+            throw "Ahk2Exe compiler not found under: $($searchRoots -join ', ')"
+          }
+
+          Write-Host "Using Ahk2Exe at $compiler"
+          "compiler=$compiler" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+
       - name: Compile dLabAppControl
         shell: powershell
         run: |
-          $compiler = Join-Path $Env:ProgramFiles 'AutoHotkey/Compiler/Ahk2Exe.exe'
-          if (!(Test-Path $compiler)) {
-            throw "Ahk2Exe compiler not found at $compiler"
+          $compiler = "${{ steps.locate-compiler.outputs.compiler }}"
+          if (-not $compiler -or -not (Test-Path $compiler)) {
+            throw "Ahk2Exe compiler path missing: $compiler"
           }
           $outDir = "dist"
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
