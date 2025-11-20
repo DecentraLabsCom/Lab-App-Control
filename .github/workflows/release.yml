@@ -88,16 +88,23 @@ jobs:
           if (-not $compiler -or -not (Test-Path $compiler)) {
             throw "Ahk2Exe compiler path missing: $compiler"
           }
-          $outDir = "dist"
+          $scriptPath = (Resolve-Path 'dLabAppControl.ahk').Path
+          $outDir = Join-Path $PWD 'dist'
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
           $outFile = Join-Path $outDir 'dLabAppControl.exe'
-          & $compiler /in dLabAppControl.ahk /out $outFile
-          $exitCode = $LASTEXITCODE
-          if ($null -eq $exitCode) {
-            $exitCode = 0
-          }
-          if ($exitCode -ne 0) {
-            throw "Ahk2Exe exited with code $exitCode"
+          $compilerDir = Split-Path -Parent $compiler
+          Push-Location $compilerDir
+          try {
+            & $compiler /in $scriptPath /out $outFile
+            $exitCode = $LASTEXITCODE
+            if ($null -eq $exitCode) {
+              $exitCode = 0
+            }
+            if ($exitCode -ne 0) {
+              throw "Ahk2Exe exited with code $exitCode"
+            }
+          } finally {
+            Pop-Location
           }
           if (-not (Test-Path $outFile)) {
             throw "Expected output missing: $outFile"
