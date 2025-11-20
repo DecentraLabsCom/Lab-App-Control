@@ -12,6 +12,8 @@ description: Automatically open and close Windows lab apps based on user session
 
 This single-instance AHK v2 script launches your lab Windows desktop control app on connect, keeps it foregrounded, and closes it automatically when the user session changes (e.g., disconnects).
 
+> **Latest release:** `v2.4.0` (2025-11-19) — hardened CLI parsing for Guacamole/CMD pipelines and expanded regression coverage. See the [Changelog](CHANGELOG.md) for details.
+
 > **Single Application Mode:**\
 > `dLabAppControl.exe "WindowClass" "C:\path\to\app.exe"`\
 > `dLabAppControl.exe "Chrome_WidgetWin_1" "C:\Program Files\Google\Chrome\Application\chrome.exe"`\

@@ -29,6 +29,16 @@ jobs:
           }
           & $ahk.FullName tests\SmokeTest_DualAppMode.ahk
 
+      - name: Run argument parsing matrix
+        shell: powershell
+        run: |
+          $libPath = Join-Path $Env:ChocolateyInstall 'lib'
+          $ahk = Get-ChildItem -Path $libPath -Recurse -Filter AutoHotkey*.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $ahk) {
+            throw "AutoHotkey executable not found after installation"
+          }
+          & $ahk.FullName tests\ArgumentParsingTests.ahk
+
       - name: Upload smoke test log
         if: always()
         uses: actions/upload-artifact@v4

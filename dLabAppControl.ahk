@@ -19,6 +19,9 @@ ProcessSetPriority "High"
 #Include lib\SingleAppMode.ahk
 #Include lib\DualAppMode.ahk
 
+global APP_VERSION := "2.4.0"
+Log("dLabAppControl v" . APP_VERSION . " starting")
+
 ; ============================================================================
 ; HELP & USAGE
 ; ============================================================================
@@ -35,7 +38,8 @@ ProcessSetPriority "High"
 ; (Note: Browser auto-kiosk is disabled in dual mode)
 
 if (A_Args.Length < 2) {
-    MsgBox "Use: dLabAppControl.exe [window_ahk_class] [C:\path\to\app.exe] [@options]"
+    infoHeader := Format("dLabAppControl v{1}`n", APP_VERSION)
+    MsgBox infoHeader . "Use: dLabAppControl.exe [window_ahk_class] [C:\path\to\app.exe] [@options]"
     . "`n`nSingle Application Mode:"
     . "`n- dLabAppControl.exe `"MozillaWindowClass`" `\`"C:\Program Files\Mozilla Firefox\firefox.exe\`""
     . "`n- dLabAppControl.exe `"Chrome_WidgetWin_1`" `\`"C:\Program Files\Google\Chrome\Application\chrome.exe\`" http://127.0.0.1:8000`""
@@ -81,6 +85,19 @@ IsFullCommand(arg) {
     return false
 }
 
+StripOuterQuotes(value) {
+    quote := Chr(34)
+    if (StrLen(value) >= 2 && SubStr(value, 1, 1) = quote && SubStr(value, -1) = quote) {
+        return SubStr(value, 2, StrLen(value) - 2)
+    }
+    return value
+}
+
+HasOuterQuotes(value) {
+    quote := Chr(34)
+    return StrLen(value) >= 2 && SubStr(value, 1, 1) = quote && SubStr(value, -1) = quote
+}
+
 ; Parse optional parameters
 DUAL_APP_MODE := false
 tab1Title := "Application 1"  ; Default title
@@ -93,6 +110,7 @@ global customCloseX := 0
 global customCloseY := 0
 global TEST_MODE := false
 global CUSTOM_CLOSE_METHOD := "none"
+global ARGS_DUMP_PATH := ""
 
 ; Log all received arguments for debugging
 Log("==== RECEIVED ARGUMENTS ====")
@@ -150,9 +168,18 @@ for index, arg in A_Args {
                 CUSTOM_CLOSE_METHOD := "coordinates"
                 Log("Custom close coordinates: " . customCloseX . "," . customCloseY)
             } else {
-                MsgBox("Error: @close-coords must be in format X,Y (e.g., @close-coords=`"330,484`")", "Invalid Coordinates", 16)
+                if !SILENT_ERRORS {
+                    MsgBox("Error: @close-coords must be in format X,Y (e.g., @close-coords=`"330,484`")", "Invalid Coordinates", 16)
+                }
                 ExitApp(1)
             }
+        } else if (SubStr(argLower, 1, 11) = "@dump-args=") {
+            ARGS_DUMP_PATH := StripOuterQuotes(SubStr(arg, 12))
+            if (ARGS_DUMP_PATH = "") {
+                MsgBox("Error: @dump-args requires a valid file path", "Invalid @dump-args", 16)
+                ExitApp(1)
+            }
+            Log("Argument dump will be written to: " . ARGS_DUMP_PATH)
         } else {
             Log("WARNING: Unknown option: " . arg . " - ignoring")
         }
@@ -164,7 +191,9 @@ for index, arg in A_Args {
 
 ; Validate custom close parameters
 if (customCloseControl != "" && (customCloseX > 0 || customCloseY > 0)) {
-    MsgBox("Error: Cannot use both @close-button and @close-coords at the same time", "Invalid Parameters", 16)
+    if !SILENT_ERRORS {
+        MsgBox("Error: Cannot use both @close-button and @close-coords at the same time", "Invalid Parameters", 16)
+    }
     ExitApp(1)
 }
 
@@ -177,9 +206,13 @@ if (DUAL_APP_MODE) {
     }
     
     windowClass := positionalArgs[1]
-    appCommand := positionalArgs[2]
+    appInput := positionalArgs[2]
+    appWasQuoted := HasOuterQuotes(appInput)
+    appCommand := StripOuterQuotes(appInput)
     windowClass2 := positionalArgs[3]
-    appCommand2 := positionalArgs[4]
+    appInput2 := positionalArgs[4]
+    appWasQuoted2 := HasOuterQuotes(appInput2)
+    appCommand2 := StripOuterQuotes(appInput2)
     quote := Chr(34)
     
     ; Reconstruct commands if there are additional arguments beyond the basic 4
@@ -187,10 +220,14 @@ if (DUAL_APP_MODE) {
     if (positionalArgs.Length > 4) {
         Log("Additional arguments in dual mode - may need reconstruction")
 
-        ; Check if appCommand needs quoting (has spaces but no quotes)
-        if (InStr(appCommand, " ") && SubStr(appCommand, 1, 1) != quote) {
+        ; Wrap executables before appending any extra parameters so spaces stay intact
+        if (SubStr(appCommand, 1, 1) != quote) {
             appCommand := quote . appCommand . quote
-            Log("Quoted app1 executable path: " . appCommand)
+            Log("Wrapped app1 executable path for reconstruction")
+        }
+        if (SubStr(appCommand2, 1, 1) != quote) {
+            appCommand2 := quote . appCommand2 . quote
+            Log("Wrapped app2 executable path for reconstruction")
         }
         
         ; Collect extra arguments - they could belong to either app
@@ -201,16 +238,6 @@ if (DUAL_APP_MODE) {
             Log("Added argument to App2 [" . argIndex . "]: " . positionalArgs[argIndex])
         }
         
-        ; Check if appCommand2 needs quoting
-        if (InStr(appCommand2, " ") && SubStr(appCommand2, 1, 1) != quote) {
-            ; Extract base path and parameters
-            parts := StrSplit(appCommand2, " ", , 2)
-            if (parts.Length >= 1) {
-                appCommand2 := quote . parts[1] . quote . (parts.Length > 1 ? " " . parts[2] : "")
-                Log("Quoted app2 executable path: " . appCommand2)
-            }
-        }
-        
         Log("Reconstructed App2 command: " . appCommand2)
     }
 
@@ -218,10 +245,16 @@ if (DUAL_APP_MODE) {
     if (InStr(appCommand, " ") && SubStr(appCommand, 1, 1) != quote) {
         appCommand := quote . appCommand . quote
         Log("Auto-quoted App1 executable path (dual mode): " . appCommand)
+    } else if (!InStr(appCommand, " ") && appWasQuoted && SubStr(appCommand, 1, 1) != quote) {
+        appCommand := quote . appCommand . quote
+        Log("Preserved App1 quotes (dual mode)")
     }
     if (InStr(appCommand2, " ") && SubStr(appCommand2, 1, 1) != quote) {
         appCommand2 := quote . appCommand2 . quote
         Log("Auto-quoted App2 executable path (dual mode): " . appCommand2)
+    } else if (!InStr(appCommand2, " ") && appWasQuoted2 && SubStr(appCommand2, 1, 1) != quote) {
+        appCommand2 := quote . appCommand2 . quote
+        Log("Preserved App2 quotes (dual mode)")
     }
     
     ; NOTE: Browser kiosk mode is NOT applied in dual mode
@@ -234,6 +267,18 @@ if (DUAL_APP_MODE) {
     Log("App 1: Class=" . windowClass . ", Command=" . appCommand . ", Tab Title=" . tab1Title)
     Log("App 2: Class=" . windowClass2 . ", Command=" . appCommand2 . ", Tab Title=" . tab2Title)
     Log("DUAL MODE: Browser kiosk auto-enhancement is disabled (apps must be embeddable)", "INFO")
+
+    if (ARGS_DUMP_PATH != "") {
+        dump := Map()
+        dump["windowClass"] := windowClass
+        dump["windowClass2"] := windowClass2
+        dump["appCommand"] := appCommand
+        dump["appCommand2"] := appCommand2
+        dump["tab1Title"] := tab1Title
+        dump["tab2Title"] := tab2Title
+        DumpParsedArgs("dual", dump)
+        ExitApp
+    }
     
     ; Launch dual app container with custom tab titles
     CreateDualAppContainer(windowClass, appCommand, windowClass2, appCommand2, tab1Title, tab2Title)
@@ -247,7 +292,9 @@ if (DUAL_APP_MODE) {
     }
     
     windowClass := positionalArgs[1]
-    appCommand := positionalArgs[2]
+    appInput := positionalArgs[2]
+    appWasQuoted := HasOuterQuotes(appInput)
+    appCommand := StripOuterQuotes(appInput)
     quote := Chr(34)
     
     ; Reconstruct command if there are additional arguments (e.g., from Guacamole)
@@ -277,6 +324,17 @@ if (DUAL_APP_MODE) {
     if (InStr(appCommand, " ") && SubStr(appCommand, 1, 1) != quote) {
         appCommand := quote . appCommand . quote
         Log("Auto-quoted executable path (single mode): " . appCommand)
+    } else if (!InStr(appCommand, " ") && appWasQuoted && SubStr(appCommand, 1, 1) != quote) {
+        appCommand := quote . appCommand . quote
+        Log("Preserved executable quotes (single mode)")
+    }
+
+    ; Some options (@close-*, @test) are parsed separately, so the executable may lose quotes
+    ; even when the original CLI used them. If any custom close/test option is active and the
+    ; command is a bare executable path, re-wrap it to keep dumps predictable.
+    if (!IsFullCommand(appCommand) && SubStr(appCommand, 1, 1) != quote && (CUSTOM_CLOSE_METHOD != "none" || TEST_MODE)) {
+        appCommand := quote . appCommand . quote
+        Log("Wrapped executable path due to custom close/test options", "DEBUG")
     }
     
     ; Auto-enhance browser command with kiosk/incognito flags
@@ -292,6 +350,18 @@ if (DUAL_APP_MODE) {
         Log("Custom close method: Coordinates (" . customCloseX . "," . customCloseY . ")")
     } else {
         Log("Custom close method: Standard cascade")
+    }
+
+    if (ARGS_DUMP_PATH != "") {
+        dump := Map()
+        dump["windowClass"] := windowClass
+        dump["appCommand"] := appCommand
+        dump["customCloseMethod"] := CUSTOM_CLOSE_METHOD
+        dump["customCloseControl"] := customCloseControl
+        dump["customCloseCoords"] := customCloseX . "," . customCloseY
+        dump["testMode"] := TEST_MODE ? "true" : "false"
+        DumpParsedArgs("single", dump)
+        ExitApp
     }
     
     ; Launch single app mode
@@ -313,3 +383,22 @@ if (DUAL_APP_MODE) {
 #HotIf (app1Hwnd != 0) && (WinActive("ahk_id " . app1Hwnd) || WinActive("ahk_id " . app2Hwnd))
 !F4::return
 #HotIf
+
+DumpParsedArgs(mode, data) {
+    global ARGS_DUMP_PATH
+    try {
+        output := "mode=" . mode . "`n"
+        for key, value in data {
+            output .= key . "=" . value . "`n"
+        }
+        if (FileExist(ARGS_DUMP_PATH)) {
+            FileDelete(ARGS_DUMP_PATH)
+        }
+        FileAppend(output, ARGS_DUMP_PATH, "UTF-8")
+        Log("Argument dump saved to " . ARGS_DUMP_PATH, "DEBUG")
+    } catch as e {
+        Log("Failed to write argument dump: " . e.Message, "ERROR")
+        if !SILENT_ERRORS
+            MsgBox "Cannot write argument dump to: " . ARGS_DUMP_PATH
+    }
+}
