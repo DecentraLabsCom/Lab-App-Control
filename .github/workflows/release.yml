@@ -16,52 +16,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install AutoHotkey (compiler)
+      - name: Install AutoHotkey (runtime)
+        shell: powershell
+        run: choco install autohotkey --no-progress --yes
+
+      - name: Download Ahk2Exe portable
+        id: fetch-compiler
         shell: powershell
         run: |
-          choco install autohotkey --no-progress --yes
-          choco install autohotkey.compiler --no-progress --yes
+          $url = 'https://github.com/AutoHotkey/Ahk2Exe/releases/latest/download/Ahk2Exe.zip'
+          $zipPath = Join-Path $PWD 'Ahk2Exe.zip'
+          $extractPath = Join-Path $PWD 'Ahk2Exe'
 
-      - name: Locate Ahk2Exe compiler
-        id: locate-compiler
-        shell: powershell
-        run: |
-          $searchRoots = @()
+          Write-Host "Downloading Ahk2Exe from $url"
+          Invoke-WebRequest -Uri $url -OutFile $zipPath
 
-          function Add-IfExists {
-            param([string]$path)
-            if ($path -and (Test-Path $path)) {
-              $script:searchRoots += $path
-            }
+          if (Test-Path $extractPath) {
+            Remove-Item -Path $extractPath -Recurse -Force
           }
 
-          if ($Env:ProgramFiles) {
-            Add-IfExists (Join-Path -Path $Env:ProgramFiles -ChildPath 'AutoHotkey')
-            Add-IfExists (Join-Path -Path $Env:ProgramFiles -ChildPath 'AutoHotkey\Compiler')
-            Add-IfExists (Join-Path -Path $Env:ProgramFiles -ChildPath 'AutoHotkey\v2')
-            Add-IfExists (Join-Path -Path $Env:ProgramFiles -ChildPath 'AutoHotkey\v2\Compiler')
-          }
-
-          if (${Env:ProgramFiles(x86)}) {
-            Add-IfExists (Join-Path -Path ${Env:ProgramFiles(x86)} -ChildPath 'AutoHotkey')
-            Add-IfExists (Join-Path -Path ${Env:ProgramFiles(x86)} -ChildPath 'AutoHotkey\Compiler')
-            Add-IfExists (Join-Path -Path ${Env:ProgramFiles(x86)} -ChildPath 'AutoHotkey\v2')
-            Add-IfExists (Join-Path -Path ${Env:ProgramFiles(x86)} -ChildPath 'AutoHotkey\v2\Compiler')
-          }
-
-          if ($Env:ChocolateyInstall) {
-            Add-IfExists (Join-Path -Path $Env:ChocolateyInstall -ChildPath 'lib')
-          }
-
-          if (-not $searchRoots -or $searchRoots.Count -eq 0) {
-            throw "No AutoHotkey install directories found via ProgramFiles/Chocolatey"
-          }
-
-          $compiler = Get-ChildItem -Path $searchRoots -Filter 'Ahk2Exe.exe' -Recurse -File -ErrorAction SilentlyContinue |
+          Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+          $compiler = Get-ChildItem -Path $extractPath -Filter 'Ahk2Exe.exe' -Recurse -File -ErrorAction SilentlyContinue |
             Select-Object -ExpandProperty FullName -First 1
 
           if (-not $compiler) {
-            throw "Ahk2Exe compiler not found under: $($searchRoots -join ', ')"
+            throw "Ahk2Exe.exe not found after download"
           }
 
           Write-Host "Using Ahk2Exe at $compiler"
@@ -70,7 +49,7 @@ jobs:
       - name: Compile dLabAppControl
         shell: powershell
         run: |
-          $compiler = "${{ steps.locate-compiler.outputs.compiler }}"
+          $compiler = "${{ steps.fetch-compiler.outputs.compiler }}"
           if (-not $compiler -or -not (Test-Path $compiler)) {
             throw "Ahk2Exe compiler path missing: $compiler"
           }
