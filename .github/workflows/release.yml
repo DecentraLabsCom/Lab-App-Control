@@ -24,13 +24,32 @@ jobs:
         id: locate-compiler
         shell: powershell
         run: |
-          $searchRoots = @(
-            Join-Path $Env:ProgramFiles 'AutoHotkey',
-            Join-Path ${Env:ProgramFiles(x86)} 'AutoHotkey',
-            Join-Path $Env:ProgramFiles 'AutoHotkey/v2',
-            Join-Path ${Env:ProgramFiles(x86)} 'AutoHotkey/v2',
-            Join-Path $Env:ChocolateyInstall 'lib/autohotkey'
-          ) | Where-Object { $_ -and (Test-Path $_) }
+          $searchRoots = @()
+
+          function Add-IfExists {
+            param([string]$path)
+            if ($path -and (Test-Path $path)) {
+              $script:searchRoots += $path
+            }
+          }
+
+          if ($Env:ProgramFiles) {
+            Add-IfExists (Join-Path -Path $Env:ProgramFiles -ChildPath 'AutoHotkey')
+            Add-IfExists (Join-Path -Path $Env:ProgramFiles -ChildPath 'AutoHotkey\v2')
+          }
+
+          if (${Env:ProgramFiles(x86)}) {
+            Add-IfExists (Join-Path -Path ${Env:ProgramFiles(x86)} -ChildPath 'AutoHotkey')
+            Add-IfExists (Join-Path -Path ${Env:ProgramFiles(x86)} -ChildPath 'AutoHotkey\v2')
+          }
+
+          if ($Env:ChocolateyInstall) {
+            Add-IfExists (Join-Path -Path $Env:ChocolateyInstall -ChildPath 'lib/autohotkey')
+          }
+
+          if (-not $searchRoots -or $searchRoots.Count -eq 0) {
+            throw "No AutoHotkey install directories found via ProgramFiles/Chocolatey"
+          }
 
           $compiler = $null
           foreach ($root in $searchRoots) {
