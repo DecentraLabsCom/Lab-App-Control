@@ -19,8 +19,11 @@ jobs:
       - name: Run DualAppMode smoke test
         shell: powershell
         run: |
-          $ahk = Get-Command AutoHotkey64.exe -ErrorAction Stop
-          & $ahk.Path tests\SmokeTest_DualAppMode.ahk
+          $ahk = Get-ChildItem "C:\ProgramData\chocolatey\lib" -Recurse -Filter AutoHotkey64.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $ahk) {
+            throw "AutoHotkey64.exe not found after installation"
+          }
+          & $ahk.FullName tests\SmokeTest_DualAppMode.ahk
 
       - name: Upload smoke test log
         if: always()
