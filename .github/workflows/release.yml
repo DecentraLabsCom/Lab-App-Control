@@ -79,7 +79,7 @@ jobs:
           
           # Locate compiler and base
           $compiler = Get-ChildItem -Path $compilerDir -Filter 'Ahk2Exe.exe' -Recurse -File | Select-Object -ExpandProperty FullName -First 1
-          $base = Join-Path $ahkDir 'AutoHotkey64.exe'
+          $base = (Resolve-Path (Join-Path $ahkDir 'AutoHotkey64.exe')).Path
           
           if (-not $compiler -or -not (Test-Path $compiler)) {
             throw "Ahk2Exe.exe not found in $compilerDir"
