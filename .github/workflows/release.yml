@@ -24,12 +24,18 @@ jobs:
         id: fetch-compiler
         shell: powershell
         run: |
-          $url = 'https://github.com/AutoHotkey/Ahk2Exe/releases/latest/download/Ahk2Exe.zip'
           $zipPath = Join-Path $PWD 'Ahk2Exe.zip'
           $extractPath = Join-Path $PWD 'Ahk2Exe'
+          $headers = @{ 'User-Agent' = 'Lab-App-Control-Release' }
+          $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest' -Headers $headers
+          $asset = $release.assets | Where-Object { $_.name -like 'Ahk2Exe*.zip' } | Select-Object -First 1
 
-          Write-Host "Downloading Ahk2Exe from $url"
-          Invoke-WebRequest -Uri $url -OutFile $zipPath
+          if (-not $asset) {
+            throw 'Could not locate Ahk2Exe zip asset from GitHub releases'
+          }
+
+          Write-Host "Downloading Ahk2Exe from $($asset.browser_download_url)"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath -Headers $headers
 
           if (Test-Path $extractPath) {
             Remove-Item -Path $extractPath -Recurse -Force
