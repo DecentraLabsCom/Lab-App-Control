@@ -22,8 +22,8 @@ jobs:
       - name: Run DualAppMode smoke test
         shell: powershell
         run: |
-          $candidates = Get-ChildItem "C:\ProgramData\chocolatey\lib" -Recurse -Include AutoHotkey64.exe,AutoHotkeyU64.exe -ErrorAction SilentlyContinue
-          $ahk = $candidates | Select-Object -First 1
+          $libPath = Join-Path $Env:ChocolateyInstall 'lib'
+          $ahk = Get-ChildItem -Path $libPath -Recurse -Filter AutoHotkey*.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $ahk) {
             throw "AutoHotkey executable not found after installation"
           }
