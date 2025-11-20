@@ -5,6 +5,9 @@ on:
     branches: ["main"]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   smoke-tests:
     runs-on: windows-latest
@@ -19,9 +22,10 @@ jobs:
       - name: Run DualAppMode smoke test
         shell: powershell
         run: |
-          $ahk = Get-ChildItem "C:\ProgramData\chocolatey\lib" -Recurse -Filter AutoHotkey64.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          $candidates = Get-ChildItem "C:\ProgramData\chocolatey\lib" -Recurse -Include AutoHotkey64.exe,AutoHotkeyU64.exe -ErrorAction SilentlyContinue
+          $ahk = $candidates | Select-Object -First 1
           if (-not $ahk) {
-            throw "AutoHotkey64.exe not found after installation"
+            throw "AutoHotkey executable not found after installation"
           }
           & $ahk.FullName tests\SmokeTest_DualAppMode.ahk
 
