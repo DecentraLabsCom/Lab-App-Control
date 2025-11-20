@@ -49,78 +49,70 @@ jobs:
         shell: powershell
         run: choco install autohotkey --no-progress --yes
 
-      - name: Download AutoHotkey v2 portable
-        id: fetch-autohotkey
+      - name: Locate AutoHotkey compiler assets
+        id: locate-tools
         shell: powershell
         run: |
-          $zipPath = Join-Path $PWD 'AutoHotkey.zip'
-          $extractPath = Join-Path $PWD 'AutoHotkey'
-          $headers = @{ 'User-Agent' = 'Lab-App-Control-Release' }
-          $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest' -Headers $headers
-          $asset = $release.assets | Where-Object { $_.name -like 'AutoHotkey_*.zip' } | Select-Object -First 1
+          $roots = @(
+            "${Env:ProgramFiles}\AutoHotkey",
+            "${Env:ProgramFiles(x86)}\AutoHotkey",
+            'C:\Program Files\AutoHotkey',
+            'C:\Program Files (x86)\AutoHotkey'
+          ) | Where-Object { $_ -and (Test-Path $_) }
 
-          if (-not $asset) {
-            throw 'Could not locate AutoHotkey portable zip asset'
+          if (-not $roots) {
+            throw 'AutoHotkey installation not found after Chocolatey install'
           }
 
-          Write-Host "Downloading AutoHotkey from $($asset.browser_download_url)"
-          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath -Headers $headers
+          $compiler = $null
+          $base = $null
 
-          if (Test-Path $extractPath) {
-            Remove-Item -Path $extractPath -Recurse -Force
+          foreach ($root in $roots) {
+            if (-not $compiler) {
+              $candidate = Join-Path $root 'Compiler\Ahk2Exe.exe'
+              if (Test-Path $candidate) {
+                $compiler = $candidate
+              }
+            }
+            if (-not $base) {
+              $candidateBase = Join-Path $root 'v2\AutoHotkey64.exe'
+              if (Test-Path $candidateBase) {
+                $base = $candidateBase
+              }
+            }
           }
-
-          Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
-          $base = Join-Path $extractPath 'AutoHotkey64.exe'
-
-          if (-not (Test-Path $base)) {
-            throw "AutoHotkey64.exe not found in $extractPath"
-          }
-
-          Write-Host "Using AutoHotkey base at $base"
-          "autohotkey_dir=$extractPath" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-          "autohotkey_base=$base" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-
-      - name: Download Ahk2Exe portable
-        id: fetch-compiler
-        shell: powershell
-        run: |
-          $zipPath = Join-Path $PWD 'Ahk2Exe.zip'
-          $extractPath = Join-Path $PWD 'Ahk2Exe'
-          $headers = @{ 'User-Agent' = 'Lab-App-Control-Release' }
-          $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest' -Headers $headers
-          $asset = $release.assets | Where-Object { $_.name -like 'Ahk2Exe*.zip' } | Select-Object -First 1
-
-          if (-not $asset) {
-            throw 'Could not locate Ahk2Exe zip asset from GitHub releases'
-          }
-
-          Write-Host "Downloading Ahk2Exe from $($asset.browser_download_url)"
-          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath -Headers $headers
-
-          if (Test-Path $extractPath) {
-            Remove-Item -Path $extractPath -Recurse -Force
-          }
-
-          Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
-          $compiler = Get-ChildItem -Path $extractPath -Filter 'Ahk2Exe.exe' -Recurse -File -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty FullName -First 1
 
           if (-not $compiler) {
-            throw "Ahk2Exe.exe not found after download"
+            $compiler = Get-ChildItem -Path $roots -Recurse -Filter 'Ahk2Exe.exe' -File -ErrorAction SilentlyContinue |
+              Select-Object -ExpandProperty FullName -First 1
           }
 
-          Write-Host "Using Ahk2Exe at $compiler"
+          if (-not $base) {
+            $base = Get-ChildItem -Path $roots -Recurse -Filter 'AutoHotkey64.exe' -File -ErrorAction SilentlyContinue |
+              Select-Object -ExpandProperty FullName -First 1
+          }
+
+          if (-not $compiler) {
+            throw 'Ahk2Exe.exe not found under AutoHotkey installation'
+          }
+
+          if (-not $base) {
+            throw 'AutoHotkey64.exe not found under AutoHotkey installation'
+          }
+
+          Write-Host "Compiler located at $compiler"
+          Write-Host "Base executable at $base"
           "compiler=$compiler" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "autohotkey_base=$base" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
 
       - name: Compile dLabAppControl
         shell: powershell
         run: |
-          $compiler = "${{ steps.fetch-compiler.outputs.compiler }}"
+          $compiler = "${{ steps.locate-tools.outputs.compiler }}"
           if (-not $compiler -or -not (Test-Path $compiler)) {
             throw "Ahk2Exe compiler path missing: $compiler"
           }
-          $base = "${{ steps.fetch-autohotkey.outputs.autohotkey_base }}"
+          $base = "${{ steps.locate-tools.outputs.autohotkey_base }}"
           if (-not $base -or -not (Test-Path $base)) {
             throw "AutoHotkey base path missing: $base"
           }
