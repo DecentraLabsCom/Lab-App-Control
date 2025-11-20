@@ -6,14 +6,105 @@
 
 ; Returns [EventRecordID, EventID] of the latest RDP events
 GetLatestRdpEventRecord(ids := [23, 24, 39, 40]) {
-    static wevtutilErrorLogged := false
-    
+    record := QueryLatestRdpEventRecordViaApi(ids)
+    if (record[1] != 0 || record[2] != 0)
+        return record
+    return QueryLatestRdpEventRecordViaWevtutil(ids)
+}
+
+QueryLatestRdpEventRecordViaApi(ids) {
+    static apiAvailable := true
+    static apiFailureLogged := false
+    local hQuery := 0, hEvent := 0
+    result := [0, 0]
+
+    if (!apiAvailable)
+        return result
+
     eventLog := "Microsoft-Windows-TerminalServices-LocalSessionManager/Operational"
-    tmp := A_Temp "\rdp_event.xml"
+    query := BuildRdpEventQuery(ids)
+
+    try {
+        flags := 0x0001 | 0x0200  ; Channel path + reverse direction (newest first)
+        hQuery := DllCall("wevtapi\EvtQuery", "ptr", 0, "wstr", eventLog, "wstr", query, "uint", flags, "ptr")
+        if (!hQuery)
+            throw Error("EvtQuery failed", , DllCall("GetLastError", "UInt"))
+
+        handleBuf := Buffer(A_PtrSize, 0)
+        success := DllCall("wevtapi\EvtNext", "ptr", hQuery, "uint", 1, "ptr", handleBuf.Ptr,
+            "uint", 100, "uint", 0, "uint*", &returned := 0)
+        if (!success) {
+            err := DllCall("GetLastError", "UInt")
+            if (err = 259)  ; ERROR_NO_MORE_ITEMS
+                return result
+            throw Error("EvtNext failed", , err)
+        }
+
+        hEvent := NumGet(handleBuf, 0, "ptr")
+        xml := RenderEventXml(hEvent)
+        if (xml = "")
+            return result
+
+        recId := 0, evId := 0
+        if RegExMatch(xml, "<EventRecordID>(\d+)</EventRecordID>", &m1)
+            recId := Integer(m1[1])
+        if RegExMatch(xml, "<EventID>(\d+)</EventID>", &m2)
+            evId := Integer(m2[1])
+        result := [recId, evId]
+    } catch as e {
+        if (!apiFailureLogged) {
+            Log("WARNING: Windows Event API unavailable (" . e.Message . ") - falling back to wevtutil", "WARNING")
+            apiFailureLogged := true
+        }
+        apiAvailable := false
+        result := [0, 0]
+    } finally {
+        if (hEvent)
+            DllCall("wevtapi\EvtClose", "ptr", hEvent)
+        if (hQuery)
+            DllCall("wevtapi\EvtClose", "ptr", hQuery)
+    }
+
+    return result
+}
+
+RenderEventXml(hEvent) {
+    if (!hEvent)
+        return ""
+
+    bufferSize := 0
+    propertyCount := 0
+    success := DllCall("wevtapi\EvtRender", "ptr", 0, "ptr", hEvent, "uint", 1,
+        "uint", 0, "ptr", 0, "uint*", &bufferSize, "uint*", &propertyCount)
+    err := DllCall("GetLastError", "UInt")
+    if (!success && err != 122)  ; ERROR_INSUFFICIENT_BUFFER expected on first call
+        return ""
+
+    if (bufferSize <= 0)
+        return ""
+
+    buffer := Buffer(bufferSize, 0)
+    if !DllCall("wevtapi\EvtRender", "ptr", 0, "ptr", hEvent, "uint", 1,
+        "uint", buffer.Size, "ptr", buffer.Ptr, "uint*", &bufferUsed := 0, "uint*", &propertyCount) {
+        return ""
+    }
+
+    return StrGet(buffer.Ptr, bufferUsed // 2, "UTF-16")
+}
+
+BuildRdpEventQuery(ids) {
     cond := ""
     for id in ids
         cond .= (cond ? " or " : "") . "EventID=" . id
-    xpath := "*[System[(" . cond . ")]]"
+    return "*[System[(" . cond . ")]]"
+}
+
+QueryLatestRdpEventRecordViaWevtutil(ids) {
+    static wevtutilErrorLogged := false
+
+    eventLog := "Microsoft-Windows-TerminalServices-LocalSessionManager/Operational"
+    tmp := A_Temp "\rdp_event.xml"
+    xpath := BuildRdpEventQuery(ids)
 
     ; Try to find wevtutil.exe
     wevt := ""
@@ -26,7 +117,7 @@ GetLatestRdpEventRecord(ids := [23, 24, 39, 40]) {
 
     fullCmd := Format('"{1}" qe "{2}" /q:"{3}" /c:1 /f:xml /rd:true > "{4}"'
                     , wevt, eventLog, xpath, tmp)
-    
+
     try {
         exitCode := RunWait(Format('"{1}" /C {2}', A_ComSpec, fullCmd), , "Hide")
         if (exitCode != 0) {

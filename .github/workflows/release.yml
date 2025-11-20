@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install AutoHotkey (compiler)
+        shell: powershell
+        run: choco install autohotkey --no-progress --yes
+
+      - name: Compile dLabAppControl
+        shell: powershell
+        run: |
+          $compiler = Join-Path $Env:ProgramFiles 'AutoHotkey/Compiler/Ahk2Exe.exe'
+          if (!(Test-Path $compiler)) {
+            throw "Ahk2Exe compiler not found at $compiler"
+          }
+          $outDir = "dist"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          & $compiler /in dLabAppControl.ahk /out "$outDir/dLabAppControl.exe"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dLabAppControl
+          path: dist/dLabAppControl.exe
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/dLabAppControl.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

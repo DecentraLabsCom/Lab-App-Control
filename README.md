@@ -4,6 +4,10 @@ description: Automatically open and close Windows lab apps based on user session
 
 # Lab App Control
 
+[![Tests](https://github.com/DecentraLabsCom/Lab-App-Control/actions/workflows/tests.yml/badge.svg)](https://github.com/DecentraLabsCom/Lab-App-Control/actions/workflows/tests.yml)
+[![Security Scan](https://github.com/DecentraLabsCom/Lab-App-Control/actions/workflows/codeql.yml/badge.svg)](https://github.com/DecentraLabsCom/Lab-App-Control/actions/workflows/codeql.yml)
+[![Release](https://github.com/DecentraLabsCom/Lab-App-Control/actions/workflows/release.yml/badge.svg)](https://github.com/DecentraLabsCom/Lab-App-Control/actions/workflows/release.yml)
+
 **dLabAppControl** is an AutoHotKey script designed to auto-control the lab app lifecycle based on user session events (RDP) in the DecentraLabs lab provider machine.
 
 This single-instance AHK v2 script launches your lab Windows desktop control app on connect, keeps it foregrounded, and closes it automatically when the user session changes (e.g., disconnects).
@@ -367,14 +371,32 @@ The script is organized into focused modules in the `lib/` directory:
 ```
 Lab App Control/
 ├── dLabAppControl.ahk              # Main entry point
-└── lib/                            # Library modules
-    ├── Config.ahk                  # Configuration and constants
-    ├── Utils.ahk                   # Utility functions
-    ├── WindowClosing.ahk           # Window closing logic
-    ├── RdpMonitoring.ahk           # RDP event monitoring
-    ├── SingleAppMode.ahk           # Single app implementation
-    ├── DualAppMode.ahk             # Dual app container
-    └── README.md                   # Module documentation
+├── lib/                            # Library modules
+│   ├── Config.ahk                  # Configuration and constants
+│   ├── Utils.ahk                   # Utility functions
+│   ├── WindowClosing.ahk           # Window closing logic
+│   ├── RdpMonitoring.ahk           # RDP event monitoring
+│   ├── SingleAppMode.ahk           # Single app implementation
+│   ├── DualAppMode.ahk             # Dual app container
+│   └── README.md                   # Module documentation
+└── tests/
+  ├── FakeApp.ahk                 # Lightweight GUI stub used in smoke tests
+  └── SmokeTest_DualAppMode.ahk   # Minimal DualAppMode smoke test harness
 ```
 
 See `lib/README.md` for detailed module documentation.
+
+### ✅ Smoke Tests
+
+The `tests/` folder contains a lightweight smoke test that launches **DualAppMode** with two simulated applications and verifies key log markers. Run it with AutoHotkey v2 (64-bit recommended):
+
+```powershell
+"C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" tests\SmokeTest_DualAppMode.ahk
+```
+
+The harness:
+
+- Launches two `FakeApp.ahk` instances with predictable window classes.
+- Starts `CreateDualAppContainer` with those apps and waits ~8 seconds.
+- Checks `tests\dLabAppControl.log` for the expected lifecycle messages.
+- Returns exit code **0** on success (non-zero otherwise) so you can wire it into CI or scripted regression checks.

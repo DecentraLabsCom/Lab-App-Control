@@ -29,6 +29,10 @@ Lab App Control/
 - `Log(msg)` - Logging with timestamps
 - `IsNumber(str)` - String validation
 - `HasCustomTitleBar(hwnd)` - Detect app title bar type
+- `WaitUntil(callback, timeoutMs?, intervalMs?)` - Polling helper for state transitions
+- `GetWindowDimensions(hwnd)` / `EnsureWindowSized(...)` - Safe window sizing helpers
+- `FindWindowCandidate(className, pid, isLauncher)` - Shared discovery logic for app windows
+- `ApplyContainerPositioningDelay()` - Configurable pause before positioning embedded apps
 
 ### WindowClosing.ahk
 **Purpose:** Window closing with multiple fallback methods  

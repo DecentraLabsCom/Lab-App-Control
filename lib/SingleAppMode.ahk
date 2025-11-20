@@ -6,6 +6,7 @@
 
 CreateSingleApp(windowClass, appCommand) {
     global target, STARTUP_TIMEOUT, ACTIVATION_RETRIES, SILENT_ERRORS, TEST_MODE, CUSTOM_CLOSE_METHOD
+    global WINDOW_STATE_TIMEOUT_MS, WINDOW_STATE_POLL_INTERVAL_MS
     
     Log("Initializing single app mode", "INFO")
     
@@ -61,8 +62,10 @@ CreateSingleApp(windowClass, appCommand) {
         ; Check if window still exists before each operation
         if !WinExist(target) {
             if (attempt < ACTIVATION_RETRIES) {
-                Log("Window temporarily unavailable (attempt " . attempt . "/" . ACTIVATION_RETRIES . ") - waiting 500ms...")
-                Sleep(500)
+                Log("Window temporarily unavailable (attempt " . attempt . "/" . ACTIVATION_RETRIES . ") - waiting for it to return", "DEBUG")
+                if (!WaitUntil(() => WinExist(target), WINDOW_STATE_TIMEOUT_MS, WINDOW_STATE_POLL_INTERVAL_MS)) {
+                    Log("Window still missing after wait period (attempt " . attempt . ")", "WARNING")
+                }
                 continue
             } else {
                 Log("ERROR: Window disappeared and did not reappear after " . ACTIVATION_RETRIES . " attempts")
@@ -75,11 +78,9 @@ CreateSingleApp(windowClass, appCommand) {
         ; Try to activate
         try {
             WinActivate(target)
-            Sleep(200)  ; Brief pause to let activation complete
+            active := WaitUntil(() => WinActive(target), WINDOW_STATE_TIMEOUT_MS, WINDOW_STATE_POLL_INTERVAL_MS)
             
-            ; Verify activation worked
-            if WinActive(target) || WinExist(target) {
-                ; Try to maximize
+            if (active || WinExist(target)) {
                 try {
                     WinMaximize(target)
                     activationSuccess := true
@@ -89,15 +90,10 @@ CreateSingleApp(windowClass, appCommand) {
                     Log("Maximize failed on attempt " . attempt . ": " . e.message)
                 }
             } else {
-                Log("Activation did not complete on attempt " . attempt)
+                Log("Activation did not complete on attempt " . attempt, "WARNING")
             }
         } catch as e {
             Log("WinActivate failed on attempt " . attempt . ": " . e.message)
-        }
-        
-        ; Wait before retry (except on last attempt)
-        if (attempt < ACTIVATION_RETRIES && !activationSuccess) {
-            Sleep(500)
         }
     }
     
@@ -108,7 +104,7 @@ CreateSingleApp(windowClass, appCommand) {
     
     ; Additional maximization attempt for apps like Firefox that don't respond to WinMaximize immediately
     ; This is done after the window styles are modified
-    Sleep(100)  ; Brief pause to let initial operations complete
+    WaitUntil(() => WinExist(target), WINDOW_STATE_TIMEOUT_MS, WINDOW_STATE_POLL_INTERVAL_MS)
     try {
         WinMaximize(target)
         Log("Additional maximization attempt completed", "DEBUG")

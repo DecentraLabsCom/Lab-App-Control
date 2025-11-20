@@ -23,6 +23,124 @@ Log(msg, level := "INFO") {
     OutputDebug(timestamp . " - dLabAppControl: " . prefix . msg)
 }
 
+WaitUntil(conditionCallback, timeoutMs := 0, intervalMs := 0) {
+    global WINDOW_STATE_TIMEOUT_MS, WINDOW_STATE_POLL_INTERVAL_MS
+
+    if (timeoutMs <= 0)
+        timeoutMs := WINDOW_STATE_TIMEOUT_MS
+    if (intervalMs <= 0)
+        intervalMs := WINDOW_STATE_POLL_INTERVAL_MS
+
+    deadline := A_TickCount + timeoutMs
+    while (A_TickCount <= deadline) {
+        try {
+            if conditionCallback.Call()
+                return true
+        } catch {
+            return false
+        }
+        Sleep(intervalMs)
+    }
+    return false
+}
+
+GetWindowDimensions(hwnd) {
+    if (!hwnd)
+        return 0
+    try {
+        WinGetPos(&x, &y, &w, &h, "ahk_id " . hwnd)
+        return {x: x, y: y, w: w, h: h}
+    } catch {
+        return 0
+    }
+}
+
+WindowMeetsSizeThreshold(hwnd, minWidth, minHeight, label := "", context := "") {
+    dims := GetWindowDimensions(hwnd)
+    if (!dims)
+        return false
+
+    if (dims.w > minWidth && dims.h > minHeight) {
+        if (label != "") {
+            title := ""
+            try title := WinGetTitle("ahk_id " . hwnd)
+            msg := label . " window candidate"
+            if (context != "")
+                msg .= " (" . context . ")"
+            msg .= " -> HWND " . hwnd . ": " . dims.w . "x" . dims.h . " - Title: '" . title . "'"
+            Log(msg, "DEBUG")
+        }
+        return true
+    }
+
+    return false
+}
+
+EnsureWindowSized(hwnd, label := "", minWidth := 100, minHeight := 100) {
+    global APP_WINDOW_SIZE_TIMEOUT_MS, WINDOW_STATE_POLL_INTERVAL_MS
+    dims := GetWindowDimensions(hwnd)
+    if (dims && dims.w > minWidth && dims.h > minHeight) {
+        if (label != "")
+            Log(label . " window sized: " . dims.w . "x" . dims.h, "DEBUG")
+        return true
+    }
+
+    sizeCondition := () => (
+        dims := GetWindowDimensions(hwnd),
+        dims && dims.w > minWidth && dims.h > minHeight
+    )
+
+    if (WaitUntil(sizeCondition, APP_WINDOW_SIZE_TIMEOUT_MS, WINDOW_STATE_POLL_INTERVAL_MS)) {
+        dims := GetWindowDimensions(hwnd)
+        if (label != "")
+            Log(label . " window reached usable size: " . dims.w . "x" . dims.h, "DEBUG")
+        return true
+    }
+
+    if (label != "") {
+        if (dims)
+            Log("WARNING: " . label . " window remained below size threshold (" . dims.w . "x" . dims.h . ")", "WARNING")
+        else
+            Log("WARNING: " . label . " window dimensions unavailable while waiting", "WARNING")
+    }
+    return false
+}
+
+FindWindowCandidate(className, pid, isLauncher, label := "") {
+    minWidth := 100
+    minHeight := 100
+
+    if (!isLauncher && pid) {
+        target := "ahk_class " . className . " ahk_pid " . pid
+        if WinExist(target) {
+            hwnd := WinGetID(target)
+            if (WindowMeetsSizeThreshold(hwnd, minWidth, minHeight, label, "class+pid"))
+                return hwnd
+        }
+    }
+
+    targetOnlyClass := "ahk_class " . className
+    wins := []
+    try wins := WinGetList(targetOnlyClass)
+    catch {
+        return 0
+    }
+
+    for hwnd in wins {
+        if !WinExist("ahk_id " . hwnd)
+            continue
+        if (WindowMeetsSizeThreshold(hwnd, minWidth, minHeight, label, "class-only"))
+            return hwnd
+    }
+    return 0
+}
+
+ApplyContainerPositioningDelay() {
+    global CONTAINER_POSITIONING_DELAY_MS
+    if (CONTAINER_POSITIONING_DELAY_MS > 0)
+        Sleep(CONTAINER_POSITIONING_DELAY_MS)
+}
+
 ; Helper function to check if a string is a number
 IsNumber(str) {
     try {

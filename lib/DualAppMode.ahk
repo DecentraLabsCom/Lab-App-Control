@@ -65,28 +65,33 @@ WaitForAppWindow(className, pid, isLauncher, startupTimeout) {
     return hwnd
 }
 
+
 EnsureWindowMinimized(hwnd, label := "") {
     if (!hwnd) {
         return false
     }
-    ; Try async minimize first, retrying while we wait
-    Loop 25 {
-        if (DllCall("IsIconic", "Ptr", hwnd, "UInt")) {
-            return true
-        }
-        if (!DllCall("ShowWindowAsync", "Ptr", hwnd, "Int", 6) && label != "") {
-            Log("WARNING: ShowWindowAsync(SW_MINIMIZE) attempt " . A_Index . " failed for " . label, "WARNING")
-        }
-        Sleep(20)
+    attempt := 0
+    condition := () => (
+        DllCall("IsIconic", "Ptr", hwnd, "UInt")
+        ? true
+        : (
+            attempt += 1,
+            (!DllCall("ShowWindowAsync", "Ptr", hwnd, "Int", 6) && label != "")
+                ? Log("WARNING: ShowWindowAsync(SW_MINIMIZE) attempt " . attempt . " failed for " . label, "WARNING")
+                : 0,
+            false
+        )
+    )
+
+    if (WaitUntil(condition)) {
+        return true
     }
 
-    ; Fallback to synchronous ShowWindow if async path didn't stick
     if (!DllCall("ShowWindow", "Ptr", hwnd, "Int", 6) && label != "") {
         Log("WARNING: ShowWindow(SW_MINIMIZE) fallback failed for " . label, "WARNING")
     }
 
-    Sleep(50)
-    if (DllCall("IsIconic", "Ptr", hwnd, "UInt")) {
+    if (WaitUntil(() => DllCall("IsIconic", "Ptr", hwnd, "UInt"))) {
         return true
     }
 
@@ -99,23 +104,28 @@ EnsureWindowRestored(hwnd, label := "") {
     if (!hwnd) {
         return false
     }
-    Loop 25 {
-        if (!DllCall("IsIconic", "Ptr", hwnd, "UInt")) {
-            return true
-        }
-        if (!DllCall("ShowWindowAsync", "Ptr", hwnd, "Int", 9) && label != "") {
-            Log("WARNING: ShowWindowAsync(SW_RESTORE) attempt " . A_Index . " failed for " . label, "WARNING")
-        }
-        Sleep(20)
+    attempt := 0
+    condition := () => (
+        !DllCall("IsIconic", "Ptr", hwnd, "UInt")
+        ? true
+        : (
+            attempt += 1,
+            (!DllCall("ShowWindowAsync", "Ptr", hwnd, "Int", 9) && label != "")
+                ? Log("WARNING: ShowWindowAsync(SW_RESTORE) attempt " . attempt . " failed for " . label, "WARNING")
+                : 0,
+            false
+        )
+    )
+
+    if (WaitUntil(condition)) {
+        return true
     }
 
-    ; Fallback to synchronous restore
     if (!DllCall("ShowWindow", "Ptr", hwnd, "Int", 9) && label != "") {
         Log("WARNING: ShowWindow(SW_RESTORE) fallback failed for " . label, "WARNING")
     }
 
-    Sleep(50)
-    if (!DllCall("IsIconic", "Ptr", hwnd, "UInt")) {
+    if (WaitUntil(() => !DllCall("IsIconic", "Ptr", hwnd, "UInt"))) {
         return true
     }
 
@@ -136,46 +146,55 @@ GetWindowMinMaxState(hwnd) {
     }
 }
 
+VerifyWindowPosition(hwnd, x, y, width, height, tolerance := 0) {
+    global UWP_POSITION_TOLERANCE_PX
+    if (tolerance <= 0)
+        tolerance := UWP_POSITION_TOLERANCE_PX
+    try {
+        WinGetPos(&actualX, &actualY, &actualW, &actualH, "ahk_id " . hwnd)
+    } catch {
+        return false
+    }
+    return (Abs(actualX - x) <= tolerance)
+        && (Abs(actualY - y) <= tolerance)
+        && (Abs(actualW - width) <= tolerance)
+        && (Abs(actualH - height) <= tolerance)
+}
+
 ; Robust positioning for UWP applications (with retries)
 PositionUWPApp(hwnd, x, y, width, height, maxRetries := 5) {
+    global WINDOW_STATE_TIMEOUT_MS, WINDOW_STATE_POLL_INTERVAL_MS
+    global UWP_POSITION_TOLERANCE_PX, UWP_POSITION_RETRY_DELAY_MS
+
     Loop maxRetries {
-        ; Try SetWindowPos first
-        result := DllCall("SetWindowPos", "Ptr", hwnd, "Ptr", 0,
+        DllCall("SetWindowPos", "Ptr", hwnd, "Ptr", 0,
             "Int", x, "Int", y, "Int", width, "Int", height, "UInt", 0x0014)
-        
-        Sleep(50)
-        
-        ; Verify the window actually moved/resized
+
+        if (WaitUntil(() => VerifyWindowPosition(hwnd, x, y, width, height), WINDOW_STATE_TIMEOUT_MS, WINDOW_STATE_POLL_INTERVAL_MS)) {
+            Log("UWP app positioned successfully on attempt " . A_Index, "DEBUG")
+            DllCall("RedrawWindow", "Ptr", hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085)
+            return true
+        }
+
         try {
             WinGetPos(&actualX, &actualY, &actualW, &actualH, "ahk_id " . hwnd)
-            
-            ; Allow small tolerance (±10 pixels)
-            xOk := Abs(actualX - x) <= 10
-            yOk := Abs(actualY - y) <= 10
-            wOk := Abs(actualW - width) <= 10
-            hOk := Abs(actualH - height) <= 10
-            
-            if (xOk && yOk && wOk && hOk) {
-                Log("UWP app positioned successfully on attempt " . A_Index, "DEBUG")
-                ; Force redraw
-                DllCall("RedrawWindow", "Ptr", hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085)
-                return true
-            }
-            
             Log("UWP positioning attempt " . A_Index . " - Actual: " . actualX . "," . actualY . " " . actualW . "x" . actualH . " (Expected: " . x . "," . y . " " . width . "x" . height . ")", "DEBUG")
         }
-        
-        ; If SetWindowPos didn't work, try WinMove as fallback
+
         if (A_Index >= 3) {
             try {
                 WinMove(x, y, width, height, "ahk_id " . hwnd)
-                Sleep(50)
+                if (WaitUntil(() => VerifyWindowPosition(hwnd, x, y, width, height))) {
+                    Log("UWP app positioned via WinMove fallback on attempt " . A_Index, "DEBUG")
+                    DllCall("RedrawWindow", "Ptr", hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085)
+                    return true
+                }
             }
         }
-        
-        Sleep(100 * A_Index)  ; Increasing delay between retries
+
+        Sleep(UWP_POSITION_RETRY_DELAY_MS * A_Index)
     }
-    
+
     Log("WARNING: Failed to position UWP app after " . maxRetries . " attempts", "WARNING")
     return false
 }
@@ -259,160 +278,48 @@ CreateDualAppContainer(class1, command1, class2, command2, tab1Title := "Applica
     ; Try WinWait first for efficient waiting
     hwnd1 := WaitForAppWindow(class1, pid1, isLauncher1, STARTUP_TIMEOUT)
     
-    ; If WinWait didn't find the window, fall back to original polling logic
+    ; If WinWait didn't find the window, fall back to event-driven polling
     if (!hwnd1) {
         Log("WinWait failed for App 1 - using fallback polling logic", "DEBUG")
-        waitStart := A_TickCount
-        Loop {
-            if (!isLauncher1) {
-                target1 := "ahk_class " . class1 . " ahk_pid " . pid1
-                if WinExist(target1) {
-                    hwnd1 := WinGetID(target1)
-                    WinGetPos(&x, &y, &w, &h, "ahk_id " . hwnd1)
-                    title := WinGetTitle("ahk_id " . hwnd1)
-                    Log("Found App 1 by class+pid - Window " . hwnd1 . ": " . w . "x" . h . " - Title: '" . title . "'", "DEBUG")
-                    
-                    if (w > 100 && h > 100) {
-                        Log("Selected App 1 window: " . hwnd1, "DEBUG")
-                        break
-                    }
-                }
-            }
-            
-            if (hwnd1 == 0) {
-                target1 := "ahk_class " . class1
-                if WinExist(target1) {
-                    wins := WinGetList(target1)
-                    Log("Found " . wins.Length . " window(s) for class " . class1, "DEBUG")
-                    
-                    for hwnd in wins {
-                        if WinExist("ahk_id " . hwnd) {
-                            WinGetPos(&x, &y, &w, &h, "ahk_id " . hwnd)
-                            title := WinGetTitle("ahk_id " . hwnd)
-                            Log("  Window " . hwnd . ": " . w . "x" . h . " - Title: '" . title . "'", "DEBUG")
-                            
-                            if (w > 100 && h > 100) {
-                                hwnd1 := hwnd
-                                Log("Selected App 1 window by class" . (isLauncher1 ? " (launcher mode)" : "") . ": " . hwnd1, "DEBUG")
-                                break 2
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if ((A_TickCount - waitStart) / 1000 > STARTUP_TIMEOUT) {
-                Log("ERROR: Application 1 window did not appear within timeout", "ERROR")
-                MsgBox "Application 1 window (class: " . class1 . ") did not appear within " . STARTUP_TIMEOUT . " seconds"
-                ExitApp
-            }
-            
-            Sleep(200)
+        condition1 := () => !!(hwnd1 := FindWindowCandidate(class1, pid1, isLauncher1, "App 1"))
+        if (!WaitUntil(condition1, STARTUP_TIMEOUT * 1000, APP_WINDOW_POLL_INTERVAL_MS)) {
+            Log("ERROR: Application 1 window did not appear within timeout", "ERROR")
+            MsgBox "Application 1 window (class: " . class1 . ") did not appear within " . STARTUP_TIMEOUT . " seconds"
+            ExitApp
         }
+        Log("Selected App 1 window via fallback: " . hwnd1, "DEBUG")
     } else {
-        ; WinWait succeeded - validate window size
+        ; WinWait succeeded - log and ensure the window reaches usable dimensions
         WinGetPos(&x, &y, &w, &h, "ahk_id " . hwnd1)
         title := WinGetTitle("ahk_id " . hwnd1)
         Log("App 1 window found by WinWait - Window " . hwnd1 . ": " . w . "x" . h . " - Title: '" . title . "'", "DEBUG")
-        
-        if (w <= 100 || h <= 100) {
-            Log("WARNING: App 1 window found but too small (" . w . "x" . h . ") - waiting for proper size", "WARNING")
-            ; Wait a bit more for the window to reach proper size
-            waitStart := A_TickCount
-            Loop {
-                WinGetPos(&x, &y, &w, &h, "ahk_id " . hwnd1)
-                if (w > 100 && h > 100) {
-                    Log("App 1 window now properly sized: " . w . "x" . h, "DEBUG")
-                    break
-                }
-                if ((A_TickCount - waitStart) / 1000 > 2) {  ; Max 2 seconds for sizing
-                    Log("WARNING: App 1 window remained small - proceeding anyway", "WARNING")
-                    break
-                }
-                Sleep(100)
-            }
-        }
     }
+
+    EnsureWindowSized(hwnd1, "App 1")
     
     Log("Waiting for Application 2 window (Class: " . class2 . ", PID: " . pid2 . ", Launcher: " . isLauncher2 . ")...", "DEBUG")
     
     ; Try WinWait first for efficient waiting
     hwnd2 := WaitForAppWindow(class2, pid2, isLauncher2, STARTUP_TIMEOUT)
     
-    ; If WinWait didn't find the window, fall back to original polling logic
+    ; If WinWait didn't find the window, fall back to event-driven polling
     if (!hwnd2) {
         Log("WinWait failed for App 2 - using fallback polling logic", "DEBUG")
-        waitStart := A_TickCount
-        Loop {
-            if (!isLauncher2) {
-                target2 := "ahk_class " . class2 . " ahk_pid " . pid2
-                if WinExist(target2) {
-                    hwnd2 := WinGetID(target2)
-                    WinGetPos(&x, &y, &w, &h, "ahk_id " . hwnd2)
-                    title := WinGetTitle("ahk_id " . hwnd2)
-                    Log("Found App 2 by class+pid - Window " . hwnd2 . ": " . w . "x" . h . " - Title: '" . title . "'", "DEBUG")
-                    
-                    if (w > 100 && h > 100) {
-                        Log("Selected App 2 window: " . hwnd2, "DEBUG")
-                        break
-                    }
-                }
-            }
-            
-            if (hwnd2 == 0) {
-                target2 := "ahk_class " . class2
-                if WinExist(target2) {
-                    wins := WinGetList(target2)
-                    Log("Found " . wins.Length . " window(s) for class " . class2, "DEBUG")
-                    
-                    for hwnd in wins {
-                        if WinExist("ahk_id " . hwnd) {
-                            WinGetPos(&x, &y, &w, &h, "ahk_id " . hwnd)
-                            title := WinGetTitle("ahk_id " . hwnd)
-                            Log("  Window " . hwnd . ": " . w . "x" . h . " - Title: '" . title . "'", "DEBUG")
-                            
-                            if (w > 100 && h > 100) {
-                                hwnd2 := hwnd
-                                Log("Selected App 2 window by class" . (isLauncher2 ? " (launcher mode)" : "") . ": " . hwnd2, "DEBUG")
-                                break 2
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if ((A_TickCount - waitStart) / 1000 > STARTUP_TIMEOUT) {
-                Log("ERROR: Application 2 window did not appear within timeout", "ERROR")
-                MsgBox "Application 2 window (class: " . class2 . ") did not appear within " . STARTUP_TIMEOUT . " seconds"
-                ExitApp
-            }
-            
-            Sleep(200)
+        condition2 := () => !!(hwnd2 := FindWindowCandidate(class2, pid2, isLauncher2, "App 2"))
+        if (!WaitUntil(condition2, STARTUP_TIMEOUT * 1000, APP_WINDOW_POLL_INTERVAL_MS)) {
+            Log("ERROR: Application 2 window did not appear within timeout", "ERROR")
+            MsgBox "Application 2 window (class: " . class2 . ") did not appear within " . STARTUP_TIMEOUT . " seconds"
+            ExitApp
         }
+        Log("Selected App 2 window via fallback: " . hwnd2, "DEBUG")
     } else {
-        ; WinWait succeeded - validate window size
+        ; WinWait succeeded - log and ensure the window reaches usable dimensions
         WinGetPos(&x, &y, &w, &h, "ahk_id " . hwnd2)
         title := WinGetTitle("ahk_id " . hwnd2)
         Log("App 2 window found by WinWait - Window " . hwnd2 . ": " . w . "x" . h . " - Title: '" . title . "'", "DEBUG")
-        
-        if (w <= 100 || h <= 100) {
-            Log("WARNING: App 2 window found but too small (" . w . "x" . h . ") - waiting for proper size", "WARNING")
-            ; Wait a bit more for the window to reach proper size
-            waitStart := A_TickCount
-            Loop {
-                WinGetPos(&x, &y, &w, &h, "ahk_id " . hwnd2)
-                if (w > 100 && h > 100) {
-                    Log("App 2 window now properly sized: " . w . "x" . h, "DEBUG")
-                    break
-                }
-                if ((A_TickCount - waitStart) / 1000 > 2) {  ; Max 2 seconds for sizing
-                    Log("WARNING: App 2 window remained small - proceeding anyway", "WARNING")
-                    break
-                }
-                Sleep(100)
-            }
-        }
     }
+
+    EnsureWindowSized(hwnd2, "App 2")
     
     Log("App 1 HWND: " . hwnd1 . ", App 2 HWND: " . hwnd2)
     
@@ -509,7 +416,7 @@ CreateDualAppContainer(class1, command1, class2, command2, tab1Title := "Applica
     
     ; Position and size apps
     Log("Positioning applications in container", "DEBUG")
-    Sleep(100)
+    ApplyContainerPositioningDelay()
     
     ; Get container screen position for UWP apps
     container.GetPos(&containerX, &containerY, , )

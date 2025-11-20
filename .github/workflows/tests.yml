@@ -1,0 +1,31 @@
+name: Tests
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  smoke-tests:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install AutoHotkey
+        shell: powershell
+        run: choco install autohotkey.portable --no-progress --yes
+
+      - name: Run DualAppMode smoke test
+        shell: powershell
+        run: |
+          $ahk = Get-Command AutoHotkey64.exe -ErrorAction Stop
+          & $ahk.Path tests\SmokeTest_DualAppMode.ahk
+
+      - name: Upload smoke test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-logs
+          path: tests/dLabAppControl.log
+          if-no-files-found: ignore
