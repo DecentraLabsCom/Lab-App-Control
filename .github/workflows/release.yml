@@ -49,6 +49,38 @@ jobs:
         shell: powershell
         run: choco install autohotkey --no-progress --yes
 
+      - name: Download AutoHotkey v2 portable
+        id: fetch-autohotkey
+        shell: powershell
+        run: |
+          $zipPath = Join-Path $PWD 'AutoHotkey.zip'
+          $extractPath = Join-Path $PWD 'AutoHotkey'
+          $headers = @{ 'User-Agent' = 'Lab-App-Control-Release' }
+          $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest' -Headers $headers
+          $asset = $release.assets | Where-Object { $_.name -like 'AutoHotkey_*.zip' } | Select-Object -First 1
+
+          if (-not $asset) {
+            throw 'Could not locate AutoHotkey portable zip asset'
+          }
+
+          Write-Host "Downloading AutoHotkey from $($asset.browser_download_url)"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath -Headers $headers
+
+          if (Test-Path $extractPath) {
+            Remove-Item -Path $extractPath -Recurse -Force
+          }
+
+          Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+          $base = Join-Path $extractPath 'AutoHotkey64.exe'
+
+          if (-not (Test-Path $base)) {
+            throw "AutoHotkey64.exe not found in $extractPath"
+          }
+
+          Write-Host "Using AutoHotkey base at $base"
+          "autohotkey_dir=$extractPath" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "autohotkey_base=$base" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+
       - name: Download Ahk2Exe portable
         id: fetch-compiler
         shell: powershell
@@ -88,17 +120,22 @@ jobs:
           if (-not $compiler -or -not (Test-Path $compiler)) {
             throw "Ahk2Exe compiler path missing: $compiler"
           }
+          $base = "${{ steps.fetch-autohotkey.outputs.autohotkey_base }}"
+          if (-not $base -or -not (Test-Path $base)) {
+            throw "AutoHotkey base path missing: $base"
+          }
           $scriptPath = (Resolve-Path 'dLabAppControl.ahk').Path
           $outDir = Join-Path $PWD 'dist'
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
           $outFile = Join-Path $outDir 'dLabAppControl.exe'
           $compilerDir = Split-Path -Parent $compiler
           Write-Host "Compiler: $compiler"
+          Write-Host "Base: $base"
           Write-Host "Script: $scriptPath"
           Write-Host "Output: $outFile"
           Push-Location $compilerDir
           try {
-            $arguments = @('/in', $scriptPath, '/out', $outFile)
+            $arguments = @('/in', $scriptPath, '/out', $outFile, '/base', $base)
             & $compiler @arguments
             $exitCode = $LASTEXITCODE
             if ($null -eq $exitCode) {
