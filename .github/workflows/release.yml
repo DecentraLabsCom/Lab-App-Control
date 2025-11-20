@@ -45,74 +45,68 @@ jobs:
         with:
           ref: ${{ steps.release_meta.outputs.ref }}
 
-      - name: Install AutoHotkey (runtime)
-        shell: powershell
-        run: choco install autohotkey --no-progress --yes
-
-      - name: Locate AutoHotkey compiler assets
-        id: locate-tools
+      - name: Download and setup AutoHotkey v2 + Ahk2Exe
+        id: setup-tools
         shell: powershell
         run: |
-          $roots = @(
-            "${Env:ProgramFiles}\AutoHotkey",
-            "${Env:ProgramFiles(x86)}\AutoHotkey",
-            'C:\Program Files\AutoHotkey',
-            'C:\Program Files (x86)\AutoHotkey'
-          ) | Where-Object { $_ -and (Test-Path $_) }
-
-          if (-not $roots) {
-            throw 'AutoHotkey installation not found after Chocolatey install'
+          $headers = @{ 'User-Agent' = 'Lab-App-Control-Release' }
+          
+          # Download AutoHotkey v2 portable
+          $ahkRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest' -Headers $headers
+          $ahkAsset = $ahkRelease.assets | Where-Object { $_.name -like 'AutoHotkey_*.zip' } | Select-Object -First 1
+          if (-not $ahkAsset) {
+            throw 'Could not locate AutoHotkey portable zip'
           }
-
-          $compiler = $null
-          $base = $null
-
-          foreach ($root in $roots) {
-            if (-not $compiler) {
-              $candidate = Join-Path $root 'Compiler\Ahk2Exe.exe'
-              if (Test-Path $candidate) {
-                $compiler = $candidate
-              }
-            }
-            if (-not $base) {
-              $candidateBase = Join-Path $root 'v2\AutoHotkey64.exe'
-              if (Test-Path $candidateBase) {
-                $base = $candidateBase
-              }
-            }
+          
+          $ahkZip = 'AutoHotkey.zip'
+          $ahkDir = 'AutoHotkey'
+          Write-Host "Downloading AutoHotkey from $($ahkAsset.browser_download_url)"
+          Invoke-WebRequest -Uri $ahkAsset.browser_download_url -OutFile $ahkZip -Headers $headers
+          Expand-Archive -Path $ahkZip -DestinationPath $ahkDir -Force
+          
+          # Download Ahk2Exe
+          $compilerRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest' -Headers $headers
+          $compilerAsset = $compilerRelease.assets | Where-Object { $_.name -like 'Ahk2Exe*.zip' } | Select-Object -First 1
+          if (-not $compilerAsset) {
+            throw 'Could not locate Ahk2Exe zip'
           }
-
-          if (-not $compiler) {
-            $compiler = Get-ChildItem -Path $roots -Recurse -Filter 'Ahk2Exe.exe' -File -ErrorAction SilentlyContinue |
-              Select-Object -ExpandProperty FullName -First 1
+          
+          $compilerZip = 'Ahk2Exe.zip'
+          $compilerDir = 'Ahk2Exe'
+          Write-Host "Downloading Ahk2Exe from $($compilerAsset.browser_download_url)"
+          Invoke-WebRequest -Uri $compilerAsset.browser_download_url -OutFile $compilerZip -Headers $headers
+          Expand-Archive -Path $compilerZip -DestinationPath $compilerDir -Force
+          
+          # Locate compiler and base
+          $compiler = Get-ChildItem -Path $compilerDir -Filter 'Ahk2Exe.exe' -Recurse -File | Select-Object -ExpandProperty FullName -First 1
+          $base = Join-Path $ahkDir 'AutoHotkey64.exe'
+          
+          if (-not $compiler -or -not (Test-Path $compiler)) {
+            throw "Ahk2Exe.exe not found in $compilerDir"
           }
-
-          if (-not $base) {
-            $base = Get-ChildItem -Path $roots -Recurse -Filter 'AutoHotkey64.exe' -File -ErrorAction SilentlyContinue |
-              Select-Object -ExpandProperty FullName -First 1
+          
+          if (-not (Test-Path $base)) {
+            throw "AutoHotkey64.exe not found at $base"
           }
-
-          if (-not $compiler) {
-            throw 'Ahk2Exe.exe not found under AutoHotkey installation'
-          }
-
-          if (-not $base) {
-            throw 'AutoHotkey64.exe not found under AutoHotkey installation'
-          }
-
-          Write-Host "Compiler located at $compiler"
-          Write-Host "Base executable at $base"
+          
+          # Copy Ahk2Exe dependencies from AutoHotkey
+          $compilerBinDir = Split-Path -Parent $compiler
+          Copy-Item -Path (Join-Path $ahkDir 'AutoHotkey32.exe') -Destination (Join-Path $compilerBinDir 'Unicode 32-bit.bin') -Force
+          Copy-Item -Path (Join-Path $ahkDir 'AutoHotkey64.exe') -Destination (Join-Path $compilerBinDir 'Unicode 64-bit.bin') -Force
+          
+          Write-Host "Compiler: $compiler"
+          Write-Host "Base: $base"
           "compiler=$compiler" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
           "autohotkey_base=$base" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
 
       - name: Compile dLabAppControl
         shell: powershell
         run: |
-          $compiler = "${{ steps.locate-tools.outputs.compiler }}"
+          $compiler = "${{ steps.setup-tools.outputs.compiler }}"
           if (-not $compiler -or -not (Test-Path $compiler)) {
             throw "Ahk2Exe compiler path missing: $compiler"
           }
-          $base = "${{ steps.locate-tools.outputs.autohotkey_base }}"
+          $base = "${{ steps.setup-tools.outputs.autohotkey_base }}"
           if (-not $base -or -not (Test-Path $base)) {
             throw "AutoHotkey base path missing: $base"
           }
@@ -120,24 +114,18 @@ jobs:
           $outDir = Join-Path $PWD 'dist'
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
           $outFile = Join-Path $outDir 'dLabAppControl.exe'
-          $compilerDir = Split-Path -Parent $compiler
           Write-Host "Compiler: $compiler"
           Write-Host "Base: $base"
           Write-Host "Script: $scriptPath"
           Write-Host "Output: $outFile"
-          Push-Location $compilerDir
-          try {
-            $arguments = @('/in', $scriptPath, '/out', $outFile, '/base', $base)
-            & $compiler @arguments
-            $exitCode = $LASTEXITCODE
-            if ($null -eq $exitCode) {
-              $exitCode = 0
-            }
-            if ($exitCode -ne 0) {
-              throw "Ahk2Exe exited with code $exitCode"
-            }
-          } finally {
-            Pop-Location
+          $arguments = @('/in', $scriptPath, '/out', $outFile, '/base', $base)
+          & $compiler @arguments
+          $exitCode = $LASTEXITCODE
+          if ($null -eq $exitCode) {
+            $exitCode = 0
+          }
+          if ($exitCode -ne 0) {
+            throw "Ahk2Exe exited with code $exitCode"
           }
           if (-not (Test-Path $outFile)) {
             throw "Expected output missing: $outFile"
