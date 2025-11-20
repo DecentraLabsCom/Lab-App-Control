@@ -91,10 +91,13 @@ jobs:
           $outDir = "dist"
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
           $outFile = Join-Path $outDir 'dLabAppControl.exe'
-          $arguments = @('/in', 'dLabAppControl.ahk', '/out', $outFile)
-          $process = Start-Process -FilePath $compiler -ArgumentList $arguments -NoNewWindow -PassThru -Wait
-          if ($process.ExitCode -ne 0) {
-            throw "Ahk2Exe exited with code $($process.ExitCode)"
+          & $compiler /in dLabAppControl.ahk /out $outFile
+          $exitCode = $LASTEXITCODE
+          if ($null -eq $exitCode) {
+            $exitCode = 0
+          }
+          if ($exitCode -ne 0) {
+            throw "Ahk2Exe exited with code $exitCode"
           }
           if (-not (Test-Path $outFile)) {
             throw "Expected output missing: $outFile"
