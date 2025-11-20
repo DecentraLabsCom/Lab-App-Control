@@ -18,7 +18,9 @@ jobs:
 
       - name: Install AutoHotkey (compiler)
         shell: powershell
-        run: choco install autohotkey --no-progress --yes
+        run: |
+          choco install autohotkey --no-progress --yes
+          choco install autohotkey.compiler --no-progress --yes
 
       - name: Locate Ahk2Exe compiler
         id: locate-compiler
