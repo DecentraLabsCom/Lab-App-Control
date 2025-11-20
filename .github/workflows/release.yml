@@ -118,18 +118,33 @@ jobs:
           Write-Host "Base: $base"
           Write-Host "Script: $scriptPath"
           Write-Host "Output: $outFile"
+          
           $arguments = @('/in', $scriptPath, '/out', $outFile, '/base', $base)
-          & $compiler @arguments
+          $output = & $compiler @arguments 2>&1
           $exitCode = $LASTEXITCODE
+          
+          Write-Host "Compiler output:"
+          Write-Host $output
+          
           if ($null -eq $exitCode) {
             $exitCode = 0
           }
           if ($exitCode -ne 0) {
             throw "Ahk2Exe exited with code $exitCode"
           }
+          
+          # Wait for file system to flush
+          Start-Sleep -Seconds 2
+          
           if (-not (Test-Path $outFile)) {
+            Write-Host "Listing dist directory:"
+            Get-ChildItem $outDir -Recurse
             throw "Expected output missing: $outFile"
           }
+          
+          Write-Host "Successfully created: $outFile"
+          $fileInfo = Get-Item $outFile
+          Write-Host "Size: $($fileInfo.Length) bytes"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
