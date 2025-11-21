@@ -87,17 +87,18 @@ LS_BuildGui() {
     shutBtn := myGui.AddButton("x490 y275 w220 h34", "🔌 Shutdown (60s)")
     shutBtn.OnEvent("Click", LS_GuiRunPowerShutdown_Handler)
     
-    hibBtn := myGui.AddButton("x490 y315 w220 h34", "💤 Hibernate (30s)")
+    hibBtn := myGui.AddButton("x490 y300 w220 h34", "💤 Hibernate (30s)")
     hibBtn.OnEvent("Click", LS_GuiRunPowerHibernate_Handler)
     
     ; Footer
     myGui.SetFont("s8 c6B7280")
-    myGui.AddText("x24 y340 w686 Center", "DecentraLabs © 2025 · Lab Station v3.0.0")
+    myGui.AddText("x24 y360 w686 Center", "DecentraLabs © 2025 · Lab Station v3.0.0")
     refreshBtn.Focus()
     
     myGui.OnEvent("Close", (*) => myGui.Destroy())
     LS_GuiRefreshStatus(myGui)
     return myGui
+}
 
 LS_GuiRefreshStatus(gui) {
     status := LS_Status.Collect()
@@ -237,3 +238,4 @@ LS_GuiRunPowerShutdown_Handler(ctrl, info) {
 LS_GuiRunPowerHibernate_Handler(ctrl, info) {
     LS_GuiRunPower("hibernate")
 }
+
