@@ -16,6 +16,10 @@
 #Include system\EnergyAudit.ahk
 #Include system\PowerManager.ahk
 #Include system\ServiceManager.ahk
+#Include system\AccountManager.ahk
+#Include system\EnergyAudit.ahk
+#Include system\PowerManager.ahk
+#Include system\ServiceManager.ahk
 #Include service\SessionManager.ahk
 #Include service\SessionGuard.ahk
 #Include service\Telemetry.ahk
@@ -23,6 +27,8 @@
 #Include diagnostics\Status.ahk
 #Include service\CommandQueue.ahk
 #Include setup\Wizard.ahk
+#Include ui\Tray.ahk
+#Include ui\MainGui.ahk
 #Include ui\Tray.ahk
 
 ; Entry point - call main function
@@ -70,6 +76,8 @@ LabStationMain(args) {
             LS_RunDiagnosticsCommand(remaining)
         case "tray":
             LS_StartTrayUI()
+        case "gui":
+            LS_StartMainGui()
         case "launch-app-control":
             LS_LaunchAppControl(remaining)
         case "account":
@@ -105,6 +113,7 @@ LS_ShowHelp() {
         "  LabStation.exe autostart [path]     # Register controller autostart" . "`n" .
         "  LabStation.exe status               # Quick summary" . "`n" .
         "  LabStation.exe status-json [path]   # Export diagnostics" . "`n" .
+        "  LabStation.exe gui                  # Launch desktop GUI" . "`n" .
         "  LabStation.exe tray                 # Tray UI" . "`n" .
         "  LabStation.exe service [install|uninstall|start|stop]" . "`n" .
         "  LabStation.exe launch-app-control [args...]" . "`n" .

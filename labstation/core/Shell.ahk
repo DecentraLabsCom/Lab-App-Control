@@ -18,7 +18,7 @@ LS_RunPowerShell(script, description := "PowerShell command") {
         return -1
     }
 
-    command := Format('powershell -NoProfile -ExecutionPolicy Bypass -File "{1}"', tempScript)
+    command := Format('powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{1}"', tempScript)
     LS_LogInfo("Executing PowerShell - " . description)
     exitCode := RunWait(command, , "Hide")
     try FileDelete(tempScript)
@@ -34,7 +34,7 @@ LS_RunPowerShellCapture(script, description := "PowerShell command") {
         LS_LogError("Cannot write temporary PowerShell script: " . e.Message)
         return Map("exitCode", -1, "stdout", "", "stderr", e.Message)
     }
-    command := Format('powershell -NoProfile -ExecutionPolicy Bypass -File "{1}"', tempScript)
+    command := Format('powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{1}"', tempScript)
     capture := LS_RunCommandCapture(command, description)
     try FileDelete(tempScript)
     return capture
@@ -47,15 +47,21 @@ LS_RunCommand(command, description := "command") {
 
 LS_RunCommandCapture(command, description := "command") {
     LS_LogInfo("Capturing command output - " . description)
-    shell := ComObject("WScript.Shell")
-    try {
-        exec := shell.Exec(command)
-    } catch as e {
-        LS_LogError("Cannot launch command: " . e.Message)
-        return Map("exitCode", -1, "stdout", "", "stderr", e.Message)
-    }
-    stdout := exec.StdOut.ReadAll()
-    stderr := exec.StdErr.ReadAll()
-    exitCode := exec.ExitCode
+    stdoutPath := A_Temp "\LabStation-" . A_TickCount . "-stdout.txt"
+    stderrPath := A_Temp "\LabStation-" . A_TickCount . "-stderr.txt"
+    try FileDelete(stdoutPath)
+    try FileDelete(stderrPath)
+    wrapped := Format('cmd /c "{1} > \"{2}\" 2> \"{3}\""', command, stdoutPath, stderrPath)
+    exitCode := RunWait(wrapped, , "Hide")
+    stdout := ""
+    stderr := ""
+    try stdout := FileRead(stdoutPath, "UTF-8")
+    catch
+        stdout := ""
+    try stderr := FileRead(stderrPath, "UTF-8")
+    catch
+        stderr := ""
+    try FileDelete(stdoutPath)
+    try FileDelete(stderrPath)
     return Map("exitCode", exitCode, "stdout", stdout, "stderr", stderr)
 }

@@ -275,6 +275,61 @@ jobs:
           $fileInfo = Get-Item $outFile
           Write-Host "Size: $($fileInfo.Length) bytes"
 
+      - name: Compile LabStation Panel
+        shell: powershell
+        run: |
+          $compiler = "${{ steps.setup-tools.outputs.compiler }}"
+          if (-not $compiler -or -not (Test-Path $compiler)) {
+            throw "Ahk2Exe compiler path missing: $compiler"
+          }
+          $base = "${{ steps.setup-tools.outputs.autohotkey_base }}"
+          if (-not $base -or -not (Test-Path $base)) {
+            throw "AutoHotkey base path missing: $base"
+          }
+          $compilerDir = Split-Path -Parent $compiler
+          Copy-Item -Path (Join-Path (Split-Path -Parent $base) 'AutoHotkey32.exe') -Destination (Join-Path $compilerDir 'Unicode 32-bit.bin') -Force
+          Copy-Item -Path $base -Destination (Join-Path $compilerDir 'Unicode 64-bit.bin') -Force
+          $binPath = Join-Path $compilerDir 'Unicode 64-bit.bin'
+
+          $scriptPath = (Resolve-Path 'LabStationPanel.ahk').Path
+          $outDir = Join-Path $PWD 'dist'
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          $outFile = Join-Path $outDir 'LabStationPanel.exe'
+          Write-Host "Compiler: $compiler"
+          Write-Host "Base: $base"
+          Write-Host "Bin: $binPath"
+          Write-Host "Script: $scriptPath"
+          Write-Host "Output: $outFile"
+
+          Push-Location $compilerDir
+          $arguments = @('/in', $scriptPath, '/out', $outFile, '/bin', $binPath, '/silent', '1')
+          Write-Host "Running: $compiler $($arguments -join ' ')"
+          $output = & $compiler @arguments 2>&1
+          $exitCode = $LASTEXITCODE
+          Pop-Location
+
+          Write-Host "Compiler output:"
+          Write-Host $output
+
+          if ($null -eq $exitCode) {
+            $exitCode = 0
+          }
+          if ($exitCode -ne 0) {
+            throw "Ahk2Exe exited with code $exitCode"
+          }
+
+          Start-Sleep -Seconds 2
+
+          if (-not (Test-Path $outFile)) {
+            Write-Host "Listing dist directory:"
+            Get-ChildItem $outDir -Recurse
+            throw "Expected output missing: $outFile"
+          }
+
+          Write-Host "Successfully created: $outFile"
+          $fileInfo = Get-Item $outFile
+          Write-Host "Size: $($fileInfo.Length) bytes"
+
       - name: Stage WindowSpy helper
         shell: powershell
         run: |
@@ -299,6 +354,12 @@ jobs:
           name: LabStation-exe
           path: dist/LabStation.exe
 
+      - name: Upload LabStation Panel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LabStationPanel
+          path: dist/LabStationPanel.exe
+
       - name: Upload WindowSpy artifact
         uses: actions/upload-artifact@v4
         with:
@@ -311,6 +372,7 @@ jobs:
           files: |
             dist/AppControl.exe
             dist/LabStation.exe
+            dist/LabStationPanel.exe
             dist/WindowSpy.exe
           tag_name: ${{ steps.release_meta.outputs.tag }}
         env:
