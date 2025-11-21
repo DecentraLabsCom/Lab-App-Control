@@ -129,7 +129,28 @@ jobs:
           }
           Write-Host "Script verified, size: $((Get-Item $scriptPath).Length) bytes"
           
-          $arguments = @('/in', $scriptPath, '/out', $outFile, '/base', $base)
+          # Verify include files exist for LabStation
+          if ($scriptPath -like "*LabStation.ahk") {
+            Write-Host "Checking LabStation includes..."
+            $scriptDir = Split-Path -Parent $scriptPath
+            $includes = @(
+              "core\Config.ahk", "core\Logger.ahk", "core\Admin.ahk", "core\Shell.ahk", "core\Json.ahk",
+              "system\RegistryManager.ahk", "system\WakeOnLan.ahk", "system\Autostart.ahk",
+              "system\AccountManager.ahk", "system\EnergyAudit.ahk", "system\PowerManager.ahk",
+              "system\ServiceManager.ahk", "service\SessionManager.ahk", "service\SessionGuard.ahk",
+              "service\Telemetry.ahk", "service\Recovery.ahk", "diagnostics\Status.ahk",
+              "service\CommandQueue.ahk", "setup\Wizard.ahk", "ui\Tray.ahk"
+            )
+            foreach ($inc in $includes) {
+              $incPath = Join-Path $scriptDir $inc
+              if (-not (Test-Path $incPath)) {
+                throw "Missing include file: $incPath"
+              }
+            }
+            Write-Host "All include files verified"
+          }
+          
+          $arguments = @('/in', $scriptPath, '/out', $outFile, '/base', $base, '/silent', '0')
           Write-Host "Running: $compiler $($arguments -join ' ')"
           $output = & $compiler @arguments 2>&1
           $exitCode = $LASTEXITCODE
