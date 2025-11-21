@@ -30,7 +30,7 @@ LS_BuildGui() {
     myGui.StatusBox := ""
     
     ; Header with icon
-    myGui.SetFont("s16 Bold cFFFFFF")
+    myGui.SetFont("s17 Bold cFFFFFF", "Bahnschrift")
     myGui.AddText("x24 y16", "🖥️ Lab Station")
     myGui.SetFont("s9 c9CA3AF")
     myGui.AddText("x24 yp+28", "Workstation management console")
@@ -41,13 +41,13 @@ LS_BuildGui() {
     ]
     for path in logoPaths {
         if (FileExist(path)) {
-        myGui.AddPicture("x610 y12 h40 +BackgroundTrans", path)
+        myGui.AddPicture("x500 y12 w196 h40 +BackgroundTrans", path)
         break
         }
     }
     logoPath := LAB_STATION_PROJECT_ROOT "\img\DecentraLabs.png"
     if (FileExist(logoPath)) {
-        myGui.AddPicture("x610 y12 h40 +BackgroundTrans", logoPath)
+        myGui.AddPicture("x500 y12 w196 h40 +BackgroundTrans", logoPath)
     }
     
     ; Status section
