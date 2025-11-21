@@ -160,7 +160,10 @@ jobs:
           $scriptDir = Split-Path -Parent $scriptPath
           $scriptName = Split-Path -Leaf $scriptPath
           Push-Location $scriptDir
-          $arguments = @('/in', $scriptName, '/out', $outFile, '/bin', $binPath, '/silent', '1')
+          Write-Host "Current directory: $(Get-Location)"
+          Write-Host "Files in current directory:"
+          Get-ChildItem | Select-Object -First 10 | Format-Table Name
+          $arguments = @('/in', $scriptName, '/out', $outFile, '/bin', $binPath)
           Write-Host "Running from: $scriptDir"
           Write-Host "Running: $compiler $($arguments -join ' ')"
           $output = & $compiler @arguments 2>&1
