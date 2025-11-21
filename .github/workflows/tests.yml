@@ -27,7 +27,7 @@ jobs:
           if (-not $ahk) {
             throw "AutoHotkey executable not found after installation"
           }
-          & $ahk.FullName tests\SmokeTest_DualAppMode.ahk
+          & $ahk.FullName controller\tests\SmokeTest_DualAppMode.ahk
 
       - name: Run argument parsing matrix
         shell: powershell
@@ -37,12 +37,12 @@ jobs:
           if (-not $ahk) {
             throw "AutoHotkey executable not found after installation"
           }
-          & $ahk.FullName tests\ArgumentParsingTests.ahk
+          & $ahk.FullName controller\tests\ArgumentParsingTests.ahk
 
       - name: Upload smoke test log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: smoke-logs
-          path: tests/dLabAppControl.log
+          path: controller/tests/AppControl.log
           if-no-files-found: ignore

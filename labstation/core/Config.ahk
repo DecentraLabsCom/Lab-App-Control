@@ -13,8 +13,81 @@ if (!IsSet(LAB_STATION_ROOT)) {
     global LAB_STATION_PROJECT_ROOT := NormalizePath(A_ScriptDir "\..")
 }
 
+if (!IsSet(LAB_STATION_PROJECT_ROOT)) {
+    global LAB_STATION_PROJECT_ROOT := NormalizePath(LAB_STATION_ROOT "\..")
+}
+
+if (!IsSet(LAB_STATION_CONTROLLER_DIR)) {
+    global LAB_STATION_CONTROLLER_DIR := LAB_STATION_PROJECT_ROOT "\controller"
+}
+
+if (!DirExist(LAB_STATION_CONTROLLER_DIR)) {
+    potential := LAB_STATION_PROJECT_ROOT
+    if (FileExist(potential "\AppControl.exe")) {
+        LAB_STATION_CONTROLLER_DIR := potential
+    }
+}
+
 if (!IsSet(LAB_STATION_LOG)) {
     global LAB_STATION_LOG := LAB_STATION_ROOT "\labstation.log"
+}
+
+if (!IsSet(LAB_STATION_DATA_DIR)) {
+    global LAB_STATION_DATA_DIR := LAB_STATION_ROOT "\data"
+    EnsureDir(LAB_STATION_DATA_DIR)
+}
+
+if (!IsSet(LAB_STATION_STATUS_FILE)) {
+    global LAB_STATION_STATUS_FILE := LAB_STATION_DATA_DIR "\status.json"
+}
+
+if (!IsSet(LAB_STATION_COMMAND_DIR)) {
+    global LAB_STATION_COMMAND_DIR := LAB_STATION_DATA_DIR "\commands"
+    EnsureDir(LAB_STATION_COMMAND_DIR)
+}
+
+if (!IsSet(LAB_STATION_COMMAND_INBOX)) {
+    global LAB_STATION_COMMAND_INBOX := LAB_STATION_COMMAND_DIR "\inbox"
+    EnsureDir(LAB_STATION_COMMAND_INBOX)
+}
+
+if (!IsSet(LAB_STATION_COMMAND_PROCESSED_DIR)) {
+    global LAB_STATION_COMMAND_PROCESSED_DIR := LAB_STATION_COMMAND_DIR "\processed"
+    EnsureDir(LAB_STATION_COMMAND_PROCESSED_DIR)
+}
+
+if (!IsSet(LAB_STATION_COMMAND_RESULTS_DIR)) {
+    global LAB_STATION_COMMAND_RESULTS_DIR := LAB_STATION_COMMAND_DIR "\results"
+    EnsureDir(LAB_STATION_COMMAND_RESULTS_DIR)
+}
+
+if (!IsSet(LAB_STATION_TELEMETRY_DIR)) {
+    global LAB_STATION_TELEMETRY_DIR := LAB_STATION_DATA_DIR "\telemetry"
+    EnsureDir(LAB_STATION_TELEMETRY_DIR)
+}
+
+if (!IsSet(LAB_STATION_HEARTBEAT_FILE)) {
+    global LAB_STATION_HEARTBEAT_FILE := LAB_STATION_TELEMETRY_DIR "\heartbeat.json"
+}
+
+if (!IsSet(LAB_STATION_SERVICE_STATE_FILE)) {
+    global LAB_STATION_SERVICE_STATE_FILE := LAB_STATION_DATA_DIR "\service-state.ini"
+}
+
+if (!IsSet(LAB_STATION_LOCAL_MODE_FLAG)) {
+    global LAB_STATION_LOCAL_MODE_FLAG := LAB_STATION_DATA_DIR "\local-mode.flag"
+}
+
+if (!IsSet(LAB_STATION_SESSION_AUDIT_FILE)) {
+    global LAB_STATION_SESSION_AUDIT_FILE := LAB_STATION_TELEMETRY_DIR "\session-guard-events.jsonl"
+}
+EnsureDir(path) {
+    try {
+        if (!DirExist(path)) {
+            DirCreate(path)
+        }
+    } catch {
+    }
 }
 
 NormalizePath(path) {

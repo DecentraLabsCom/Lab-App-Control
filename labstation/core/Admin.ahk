@@ -10,8 +10,8 @@ LS_EnsureAdmin(prompt := true) {
         return true
     }
     if (prompt) {
-        MsgBox "Lab Station necesita privilegios de administrador para esta acción." . "`n" .
-            "Ejecuta el ejecutable o script con 'Run as administrator'.", "Lab Station", "OK Icon!"
+        MsgBox "Lab Station requires administrator privileges for this action." . "`n" .
+            "Run the executable or script with 'Run as administrator'.", "Lab Station", "OK Icon!"
     }
     LS_LogWarning("Administrative privileges required but not granted")
     return false

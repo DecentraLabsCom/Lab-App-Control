@@ -99,7 +99,7 @@ jobs:
           "compiler=$compiler" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
           "autohotkey_base=$base" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
 
-      - name: Compile dLabAppControl
+      - name: Compile AppControl
         shell: powershell
         run: |
           $compiler = "${{ steps.setup-tools.outputs.compiler }}"
@@ -110,10 +110,10 @@ jobs:
           if (-not $base -or -not (Test-Path $base)) {
             throw "AutoHotkey base path missing: $base"
           }
-          $scriptPath = (Resolve-Path 'dLabAppControl.ahk').Path
+          $scriptPath = (Resolve-Path 'controller/AppControl.ahk').Path
           $outDir = Join-Path $PWD 'dist'
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-          $outFile = Join-Path $outDir 'dLabAppControl.exe'
+          $outFile = Join-Path $outDir 'AppControl.exe'
           Write-Host "Compiler: $compiler"
           Write-Host "Base: $base"
           Write-Host "Script: $scriptPath"
@@ -146,16 +146,89 @@ jobs:
           $fileInfo = Get-Item $outFile
           Write-Host "Size: $($fileInfo.Length) bytes"
 
-      - name: Upload artifact
+      - name: Compile LabStation
+        shell: powershell
+        run: |
+          $compiler = "${{ steps.setup-tools.outputs.compiler }}"
+          if (-not $compiler -or -not (Test-Path $compiler)) {
+            throw "Ahk2Exe compiler path missing: $compiler"
+          }
+          $base = "${{ steps.setup-tools.outputs.autohotkey_base }}"
+          if (-not $base -or -not (Test-Path $base)) {
+            throw "AutoHotkey base path missing: $base"
+          }
+          $scriptPath = (Resolve-Path 'labstation/LabStation.ahk').Path
+          $outDir = Join-Path $PWD 'dist'
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          $outFile = Join-Path $outDir 'LabStation.exe'
+          Write-Host "Compiler: $compiler"
+          Write-Host "Base: $base"
+          Write-Host "Script: $scriptPath"
+          Write-Host "Output: $outFile"
+
+          $arguments = @('/in', $scriptPath, '/out', $outFile, '/base', $base)
+          $output = & $compiler @arguments 2>&1
+          $exitCode = $LASTEXITCODE
+
+          Write-Host "Compiler output:"
+          Write-Host $output
+
+          if ($null -eq $exitCode) {
+            $exitCode = 0
+          }
+          if ($exitCode -ne 0) {
+            throw "Ahk2Exe exited with code $exitCode"
+          }
+
+          Start-Sleep -Seconds 2
+
+          if (-not (Test-Path $outFile)) {
+            Write-Host "Listing dist directory:"
+            Get-ChildItem $outDir -Recurse
+            throw "Expected output missing: $outFile"
+          }
+
+          Write-Host "Successfully created: $outFile"
+          $fileInfo = Get-Item $outFile
+          Write-Host "Size: $($fileInfo.Length) bytes"
+
+      - name: Stage WindowSpy helper
+        shell: powershell
+        run: |
+          $source = Join-Path $PWD 'WindowSpy.exe'
+          if (-not (Test-Path $source)) {
+            throw "WindowSpy.exe not found at $source"
+          }
+          $destDir = Join-Path $PWD 'dist'
+          New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+          $destFile = Join-Path $destDir 'WindowSpy.exe'
+          Copy-Item -Path $source -Destination $destFile -Force
+
+      - name: Upload AppControl artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dLabAppControl
-          path: dist/dLabAppControl.exe
+          name: AppControl
+          path: dist/AppControl.exe
+
+      - name: Upload LabStation executable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LabStation-exe
+          path: dist/LabStation.exe
+
+      - name: Upload WindowSpy artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WindowSpy
+          path: dist/WindowSpy.exe
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/dLabAppControl.exe
+          files: |
+            dist/AppControl.exe
+            dist/LabStation.exe
+            dist/WindowSpy.exe
           tag_name: ${{ steps.release_meta.outputs.tag }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
