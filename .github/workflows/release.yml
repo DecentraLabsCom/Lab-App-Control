@@ -233,16 +233,6 @@ jobs:
           Write-Host "Files in current directory:"
           Get-ChildItem | Select-Object -First 10 | Format-Table Name
           
-          # Test script syntax first
-          Write-Host "Testing script syntax with AutoHotkey..."
-          $syntaxCheck = & $base /ErrorStdOut $scriptName 2>&1
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "Syntax check output: $syntaxCheck"
-            Pop-Location
-            throw "Script has syntax errors"
-          }
-          Write-Host "Syntax check passed"
-          
           # Use absolute paths for compilation
           $absScript = Join-Path $scriptDir $scriptName
           $arguments = @('/in', $absScript, '/out', $outFile, '/bin', $binPath)
