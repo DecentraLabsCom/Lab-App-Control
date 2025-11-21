@@ -10,7 +10,7 @@
 class LS_AccountManager {
     static DefaultUser := "LABUSER"
 
-    static Setup(user := "", ByRef password := "") {
+    static Setup(user, &password) {
         if (!LS_EnsureAdmin()) {
             return false
         }
@@ -28,7 +28,7 @@ class LS_AccountManager {
         return this.ApplyLockdown(user)
     }
 
-    static EnsureAccount(user := "", ByRef password := "") {
+    static EnsureAccount(user, &password) {
         if (!LS_EnsureAdmin()) {
             return false
         }
@@ -36,7 +36,24 @@ class LS_AccountManager {
             user := this.DefaultUser
         }
         localPassword := password && password != "" ? password : this.GeneratePassword()
-        script := Format("@'`n$User = \"{1}\"`n$Password = \"{2}\"`n$secure = ConvertTo-SecureString $Password -AsPlainText -Force`n$description = 'DecentraLabs Lab Station service account'`nif (-not (Get-LocalUser -Name $User -ErrorAction SilentlyContinue)) {{`n    New-LocalUser -Name $User -Password $secure -PasswordNeverExpires $true -AccountNeverExpires $true -Description $description -UserMayNotChangePassword $true | Out-Null`n}} else {{`n    Set-LocalUser -Name $User -Password $secure -PasswordNeverExpires $true -UserMayNotChangePassword $true -AccountNeverExpires $true -Description $description`n    Enable-LocalUser -Name $User -ErrorAction SilentlyContinue | Out-Null`n}}`n$groups = @('Users', 'Remote Desktop Users')`nforeach ($group in $groups) {{`n    try {{ Add-LocalGroupMember -Group $group -Member $User -ErrorAction SilentlyContinue }} catch {{}}`n}}`ntry {{ Remove-LocalGroupMember -Group 'Administrators' -Member $User -ErrorAction SilentlyContinue }} catch {{}}`n'@", user, localPassword)
+        script := Format("
+        (
+`$User = '{1}'
+`$Password = '{2}'
+`$secure = ConvertTo-SecureString `$Password -AsPlainText -Force
+`$description = 'DecentraLabs Lab Station service account'
+if (-not (Get-LocalUser -Name `$User -ErrorAction SilentlyContinue)) {{
+    New-LocalUser -Name `$User -Password `$secure -PasswordNeverExpires `$true -AccountNeverExpires `$true -Description `$description -UserMayNotChangePassword `$true | Out-Null
+}} else {{
+    Set-LocalUser -Name `$User -Password `$secure -PasswordNeverExpires `$true -UserMayNotChangePassword `$true -AccountNeverExpires `$true -Description `$description
+    Enable-LocalUser -Name `$User -ErrorAction SilentlyContinue | Out-Null
+}}
+`$groups = @('Users', 'Remote Desktop Users')
+foreach (`$group in `$groups) {{
+    try {{ Add-LocalGroupMember -Group `$group -Member `$User -ErrorAction SilentlyContinue }} catch {{}}
+}}
+try {{ Remove-LocalGroupMember -Group 'Administrators' -Member `$User -ErrorAction SilentlyContinue }} catch {{}}
+        )", user, localPassword)
         exitCode := LS_RunPowerShell(script, "Configure lab service account")
         if (exitCode = 0) {
             password := localPassword
@@ -94,7 +111,21 @@ class LS_AccountManager {
     }
 
     static EnsureRemoteDesktopRestrictions(user) {
-        script := Format("@'`n$User = \"{1}\"`n$group = 'Remote Desktop Users'`n$members = Get-LocalGroupMember -Group $group -ErrorAction SilentlyContinue`nforeach ($member in $members) {{`n    if ($member.ObjectClass -eq 'User' -and $member.Name -ne $User) {{`n        try {{ Remove-LocalGroupMember -Group $group -Member $member.Name -ErrorAction SilentlyContinue }} catch {{}}`n    }}`n}`ntry {{`n    Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server' -Name 'fDenyTSConnections' -Value 0`n    New-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon' -Name 'DisableLockWorkstation' -Value 1 -PropertyType DWORD -Force | Out-Null`n}} catch {{}}`n'@", user)
+        script := Format("
+        (
+`$User = '{1}'
+`$group = 'Remote Desktop Users'
+`$members = Get-LocalGroupMember -Group `$group -ErrorAction SilentlyContinue
+foreach (`$member in `$members) {{
+    if (`$member.ObjectClass -eq 'User' -and `$member.Name -ne `$User) {{
+        try {{ Remove-LocalGroupMember -Group `$group -Member `$member.Name -ErrorAction SilentlyContinue }} catch {{}}
+    }}
+}}
+try {{
+    Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server' -Name 'fDenyTSConnections' -Value 0
+    New-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon' -Name 'DisableLockWorkstation' -Value 1 -PropertyType DWORD -Force | Out-Null
+}} catch {{}}
+        )", user)
         exitCode := LS_RunPowerShell(script, "Restrict Remote Desktop users")
         if (exitCode != 0) {
             LS_LogError("Unable to adjust Remote Desktop Users membership (exit=" . exitCode . ")")
@@ -115,7 +146,63 @@ class LS_AccountManager {
 
     static BuildDenyInteractiveScript(user) {
         escaped := this.EscapeForPSSingleQuote(user)
-        template := "@'`n$ErrorActionPreference = 'Stop'`n$target = '__LABUSER__'`n$targetLower = $target.ToLower()`n$exempt = @('__LABUSER__','Administrator','DefaultAccount','WDAGUtilityAccount','Guest') | ForEach-Object { $_.ToLower() }`n$localUsers = Get-LocalUser -ErrorAction SilentlyContinue`n$targetSid = ''`ntry { $targetSid = ($localUsers | Where-Object { $_.Name -eq $target } | Select-Object -First 1).SID.Value } catch {}`n$denySids = New-Object System.Collections.Generic.List[string]`n$tempExport = Join-Path $env:TEMP ('ls-secexport-' + [guid]::NewGuid().Guid + '.inf')`nsecedit /export /cfg $tempExport /areas USER_RIGHTS | Out-Null`nif (Test-Path $tempExport) {`n    foreach ($line in Get-Content $tempExport) {`n        if ($line -match '^SeDenyInteractiveLogonRight\s*=\s*(.*)$') {`n            $tokens = $Matches[1].Split(',')`n            foreach ($token in $tokens) {`n                $t = $token.Trim()`n                if (-not $t) { continue }`n                if ($targetSid -and $t -eq ('*' + $targetSid)) { continue }`n                if ($t.ToLower() -eq $targetLower) { continue }`n                [void]$denySids.Add($t)`n            }`n            break`n        }`n    }`n    Remove-Item $tempExport -Force -ErrorAction SilentlyContinue`n}`nforeach ($user in $localUsers) {`n    $nameLower = $user.Name.ToLower()`n    if ($nameLower -eq $targetLower) { continue }`n    if ($exempt -contains $nameLower) { continue }`n    try {`n        $sid = $user.SID.Value`n        if (-not $sid) { continue }`n        $token = '*' + $sid`n        if (-not $denySids.Contains($token)) { [void]$denySids.Add($token) }`n    } catch {}`n}`nif ($denySids.Count -eq 0) { [void]$denySids.Add('*S-1-5-32-546') }`n$tempCfg = Join-Path $env:TEMP ('ls-deny-' + [guid]::NewGuid().Guid + '.inf')`n$cfg = @"`n[Unicode]`nUnicode=yes`n[Version]`nsignature=""$CHICAGO$""`nRevision=1`n[Privilege Rights]`nSeDenyInteractiveLogonRight = {0}`n"@ -f ($denySids -join ',')`n$cfg | Out-File -FilePath $tempCfg -Encoding Unicode -Force`n$dbPath = Join-Path $env:TEMP 'ls-deny.sdb'`n& secedit /configure /db $dbPath /cfg $tempCfg /areas USER_RIGHTS /quiet | Out-Null`n$code = $LASTEXITCODE`nRemove-Item $tempCfg -Force -ErrorAction SilentlyContinue`nif ($code -ne 0) { throw "secedit failed with exit code $code" }`n'@"
+        template := "
+        (
+`$ErrorActionPreference = 'Stop'
+`$target = '__LABUSER__'
+`$targetLower = `$target.ToLower()
+`$exempt = @('__LABUSER__','Administrator','DefaultAccount','WDAGUtilityAccount','Guest') | ForEach-Object { `$_.ToLower() }
+`$localUsers = Get-LocalUser -ErrorAction SilentlyContinue
+`$targetSid = ''
+try { `$targetSid = (`$localUsers | Where-Object { `$_.Name -eq `$target } | Select-Object -First 1).SID.Value } catch {}
+`$denySids = New-Object System.Collections.Generic.List[string]
+`$tempExport = Join-Path `$env:TEMP ('ls-secexport-' + [guid]::NewGuid().Guid + '.inf')
+secedit /export /cfg `$tempExport /areas USER_RIGHTS | Out-Null
+if (Test-Path `$tempExport) {
+    foreach (`$line in Get-Content `$tempExport) {
+        if (`$line -match '^SeDenyInteractiveLogonRight\s*=\s*(.*)$') {
+            `$tokens = `$Matches[1].Split(',')
+            foreach (`$token in `$tokens) {
+                `$t = `$token.Trim()
+                if (-not `$t) { continue }
+                if (`$targetSid -and `$t -eq ('*' + `$targetSid)) { continue }
+                if (`$t.ToLower() -eq `$targetLower) { continue }
+                [void]`$denySids.Add(`$t)
+            }
+            break
+        }
+    }
+    Remove-Item `$tempExport -Force -ErrorAction SilentlyContinue
+}
+foreach (`$user in `$localUsers) {
+    `$nameLower = `$user.Name.ToLower()
+    if (`$nameLower -eq `$targetLower) { continue }
+    if (`$exempt -contains `$nameLower) { continue }
+    try {
+        `$sid = `$user.SID.Value
+        if (-not `$sid) { continue }
+        `$token = '*' + `$sid
+        if (-not `$denySids.Contains(`$token)) { [void]`$denySids.Add(`$token) }
+    } catch {}
+}
+if (`$denySids.Count -eq 0) { [void]`$denySids.Add('*S-1-5-32-546') }
+`$tempCfg = Join-Path `$env:TEMP ('ls-deny-' + [guid]::NewGuid().Guid + '.inf')
+`$cfg = @`"
+[Unicode]
+Unicode=yes
+[Version]
+signature=`"`$CHICAGO`$`"
+Revision=1
+[Privilege Rights]
+SeDenyInteractiveLogonRight = {0}
+`"@ -f (`$denySids -join ',')
+`$cfg | Out-File -FilePath `$tempCfg -Encoding Unicode -Force
+`$dbPath = Join-Path `$env:TEMP 'ls-deny.sdb'
+& secedit /configure /db `$dbPath /cfg `$tempCfg /areas USER_RIGHTS /quiet | Out-Null
+`$code = `$LASTEXITCODE
+Remove-Item `$tempCfg -Force -ErrorAction SilentlyContinue
+if (`$code -ne 0) { throw `"secedit failed with exit code `$code`" }
+        )"
         return StrReplace(template, "__LABUSER__", escaped)
     }
 

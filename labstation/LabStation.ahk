@@ -37,7 +37,11 @@ LabStationMain(args) {
     }
 
     command := StrLower(args[1])
-    remaining := args.Length > 1 ? args[2..] : []
+    remaining := []
+    if (args.Length > 1) {
+        loop args.Length - 1
+            remaining.Push(args[A_Index + 1])
+    }
 
     switch command {
         case "setup":
@@ -256,7 +260,11 @@ LS_HandleSessionCommand(args) {
         return
     }
     sub := StrLower(args[1])
-    subArgs := args.Length > 1 ? args[2..] : []
+    subArgs := []
+    if (args.Length > 1) {
+        loop args.Length - 1
+            subArgs.Push(args[A_Index + 1])
+    }
     switch sub {
         case "guard":
             LS_RunSessionGuard(subArgs)
@@ -297,7 +305,11 @@ LS_ParseGuardOptions(args) {
 
 LS_HandleEnergyCommand(args) {
     sub := args.Length >= 1 ? StrLower(args[1]) : "audit"
-    subArgs := args.Length > 1 ? args[2..] : []
+    subArgs := []
+    if (args.Length > 1) {
+        loop args.Length - 1
+            subArgs.Push(args[A_Index + 1])
+    }
     if (sub = "" || sub = "audit") {
         LS_RunEnergyAudit(subArgs)
     } else {
@@ -331,7 +343,12 @@ LS_HandlePowerCommand(args) {
         return
     }
     sub := StrLower(args[1])
-    opts := LS_ParsePowerOptions(args.Length > 1 ? args[2..] : [])
+    powerArgs := []
+    if (args.Length > 1) {
+        loop args.Length - 1
+            powerArgs.Push(args[A_Index + 1])
+    }
+    opts := LS_ParsePowerOptions(powerArgs)
     success := false
     switch sub {
         case "shutdown":
@@ -380,7 +397,11 @@ LS_HandleRecoveryCommand(args) {
         return
     }
     sub := StrLower(args[1])
-    subArgs := args.Length > 1 ? args[2..] : []
+    subArgs := []
+    if (args.Length > 1) {
+        loop args.Length - 1
+            subArgs.Push(args[A_Index + 1])
+    }
     switch sub {
         case "reboot-if-needed":
             opts := LS_ParseRecoveryOptions(subArgs)

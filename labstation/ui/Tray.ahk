@@ -10,7 +10,7 @@
 
 LS_StartTrayUI() {
     TraySetIcon("shell32.dll", 44)
-    TraySetToolTip("Lab Station")
+    A_IconTip := "Lab Station"
     A_TrayMenu.Delete()
     A_TrayMenu.Add("Show status", LS_Tray_ShowStatus)
     A_TrayMenu.Add("Export report", LS_Tray_ExportStatus)
@@ -46,7 +46,7 @@ LS_Tray_OpenLog(*) {
 
 LS_Tray_UpdateTooltip(*) {
     summary := LS_Status.SummaryText()
-    TraySetToolTip("Lab Station`n" . summary)
+    A_IconTip := "Lab Station`n" . summary
 }
 
 LS_Tray_Exit(*) {

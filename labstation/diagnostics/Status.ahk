@@ -189,8 +189,13 @@ class LS_Status {
 
     static GetRemoteDesktopGroupState(targetUser) {
         state := Map()
-        command := "powershell -NoProfile -Command \"try {Get-LocalGroupMember -Group 'Remote Desktop Users' -ErrorAction Stop | Where-Object {$_.ObjectClass -eq 'User'} | ForEach-Object {$_.Name}} catch {}\""
-        capture := LS_RunCommandCapture(command, "Query Remote Desktop Users members")
+        script := "
+        (
+        try {
+            Get-LocalGroupMember -Group 'Remote Desktop Users' -ErrorAction Stop | Where-Object {`$_.ObjectClass -eq 'User'} | ForEach-Object {`$_.Name}
+        } catch {}
+        )"
+        capture := LS_RunPowerShellCapture(script, "Query Remote Desktop Users members")
         members := this.ParseLines(capture["stdout"])
         state["members"] := members
         state["labUserPresent"] := this.ContainsUser(members, targetUser)
@@ -318,8 +323,11 @@ class LS_Status {
 
     static LocalUserExists(user) {
         escaped := StrReplace(user, "'", "''")
-        command := Format("powershell -NoProfile -Command \"if (Get-LocalUser -Name '{1}' -ErrorAction SilentlyContinue) {{ '1' }}\"", escaped)
-        capture := LS_RunCommandCapture(command, "Check local user")
+        script := Format("
+        (
+        if (Get-LocalUser -Name '{1}' -ErrorAction SilentlyContinue) {{ '1' }}
+        )", escaped)
+        capture := LS_RunPowerShellCapture(script, "Check local user")
         return InStr(capture["stdout"], "1") > 0
     }
 

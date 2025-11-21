@@ -91,7 +91,30 @@ class LS_EnergyAudit {
     }
 
     static GetNicPowerManagement() {
-        script := "@'`n$adapters = Get-NetAdapter -Physical -ErrorAction SilentlyContinue`nforeach ($adapter in $adapters) {`n    $pm = Get-NetAdapterPowerManagement -Name $adapter.Name -ErrorAction SilentlyContinue`n    if (-not $pm) { continue }`n    $advancedTable = @{}`n    Get-NetAdapterAdvancedProperty -Name $adapter.Name -ErrorAction SilentlyContinue | ForEach-Object {`n        if ($_.RegistryKeyword) {`n            $advancedTable[$_.RegistryKeyword.ToLower()] = $_.DisplayValue`n        }`n    }`n    $advWakeMagic = $null`n    if ($advancedTable.ContainsKey('wakeonmagicpacket')) {`n        $advWakeMagic = $advancedTable['wakeonmagicpacket']`n    }`n    $advWakePattern = $null`n    if ($advancedTable.ContainsKey('wakeonpattern')) {`n        $advWakePattern = $advancedTable['wakeonpattern']`n    }`n    $line = '{0}|{1}|{2}|{3}|{4}|{5}|{6}' -f $adapter.Name, $pm.WakeOnMagicPacket, $pm.WakeOnPattern, $pm.DeviceSleepOnDisconnect, $pm.AllowComputerToTurnOffDevice, $advWakeMagic, $advWakePattern`n    Write-Output $line`n}`n'@"
+        script := "
+        (
+        `$adapters = Get-NetAdapter -Physical -ErrorAction SilentlyContinue
+        foreach (`$adapter in `$adapters) {
+            `$pm = Get-NetAdapterPowerManagement -Name `$adapter.Name -ErrorAction SilentlyContinue
+            if (-not `$pm) { continue }
+            `$advancedTable = @{}
+            Get-NetAdapterAdvancedProperty -Name `$adapter.Name -ErrorAction SilentlyContinue | ForEach-Object {
+                if (`$_.RegistryKeyword) {
+                    `$advancedTable[`$_.RegistryKeyword.ToLower()] = `$_.DisplayValue
+                }
+            }
+            `$advWakeMagic = `$null
+            if (`$advancedTable.ContainsKey('wakeonmagicpacket')) {
+                `$advWakeMagic = `$advancedTable['wakeonmagicpacket']
+            }
+            `$advWakePattern = `$null
+            if (`$advancedTable.ContainsKey('wakeonpattern')) {
+                `$advWakePattern = `$advancedTable['wakeonpattern']
+            }
+            `$line = '{0}|{1}|{2}|{3}|{4}|{5}|{6}' -f `$adapter.Name, `$pm.WakeOnMagicPacket, `$pm.WakeOnPattern, `$pm.DeviceSleepOnDisconnect, `$pm.AllowComputerToTurnOffDevice, `$advWakeMagic, `$advWakePattern
+            Write-Output `$line
+        }
+        )"
         capture := LS_RunPowerShellCapture(script, "Query NIC power settings")
         adapters := []
         if (capture["exitCode"] != 0) {

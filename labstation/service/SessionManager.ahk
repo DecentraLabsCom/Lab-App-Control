@@ -139,7 +139,13 @@ class LS_SessionManager {
             return true
         }
         sanitized := StrReplace(path, "'", "''")
-        script := Format("@'`n$Path = '{1}'`nif (Test-Path $Path) {{`n    Get-ChildItem -Path $Path -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue`n}}`n'@", sanitized)
+        script := Format("
+        (
+`$Path = '{1}'
+if (Test-Path `$Path) {{
+    Get-ChildItem -Path `$Path -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+}}
+        )", sanitized)
         exitCode := LS_RunPowerShell(script, "Clean " . path)
         if (exitCode != 0) {
             LS_LogWarning(Format("Unable to clean {1} (exit={2})", path, exitCode))
@@ -154,8 +160,13 @@ class LS_SessionManager {
             return profile
         }
         filterUser := StrReplace(user, "'", "''")
-        command := Format("powershell -NoProfile -Command \"$u='{1}';$p=Get-CimInstance -ClassName Win32_UserProfile | Where-Object {{ $_.LocalPath -like '*\\{1}' -and -not $_.Special }} | Select-Object -First 1;if ($p) {{ $p.LocalPath }}\"", filterUser)
-        capture := LS_RunCommandCapture(command, "Lookup user profile")
+        script := Format("
+        (
+`$u = '{1}'
+`$p = Get-CimInstance -ClassName Win32_UserProfile | Where-Object {{ `$_.LocalPath -like '*\\{1}' -and -not `$_.Special }} | Select-Object -First 1
+if (`$p) {{ `$p.LocalPath }}
+        )", filterUser)
+        capture := LS_RunPowerShellCapture(script, "Lookup user profile")
         if (capture["exitCode"] = 0) {
             text := Trim(capture["stdout"])
             if (text != "") {
@@ -171,7 +182,23 @@ class LS_SessionManager {
         }
         flag := force ? "/f" : ""
         sanitized := StrReplace(user, "'", "''")
-        script := Format("@'`n$User = '{1}'`n$regex = '^\s*>?\s*' + [regex]::Escape($User) + '\s+\S+\s+(\\d+)'`n$lines = @()`ntry {{ $lines = quser }} catch {{}}`n$found = $false`nforeach ($line in $lines) {{`n    $text = $line.ToString()`n    if ($text -match $regex) {{`n        $sessionId = [int]$Matches[1]`n        try {{ logoff $sessionId {2} | Out-Null }} catch {{}}`n        $found = $true`n    }}`n}`nif ($found) {{ exit 0 }} else {{ exit 1 }}`n'@", sanitized, flag)
+        script := Format("
+        (
+`$User = '{1}'
+`$regex = '^\s*>?\s*' + [regex]::Escape(`$User) + '\s+\S+\s+(\d+)'
+`$lines = @()
+try {{ `$lines = quser }} catch {{}}
+`$found = `$false
+foreach (`$line in `$lines) {{
+    `$text = `$line.ToString()
+    if (`$text -match `$regex) {{
+        `$sessionId = [int]`$Matches[1]
+        try {{ logoff `$sessionId {2} | Out-Null }} catch {{}}
+        `$found = `$true
+    }}
+}}
+if (`$found) {{ exit 0 }} else {{ exit 1 }}
+        )", sanitized, flag)
         exitCode := LS_RunPowerShell(script, "Logoff " . user)
         if (exitCode = 0) {
             return true
