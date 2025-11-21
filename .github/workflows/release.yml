@@ -235,11 +235,11 @@ jobs:
           
           # Use absolute paths for compilation
           $absScript = Join-Path $scriptDir $scriptName
-          $arguments = @('/in', $absScript, '/out', $outFile, '/bin', $binPath)
+          $arguments = @('/in', $absScript, '/out', $outFile, '/bin', $binPath, '/gui', '0')
           Write-Host "Running from: $scriptDir"
           Write-Host "Running: $compiler $($arguments -join ' ')"
           
-          # Try to capture all output streams
+          # Try to capture all output streams with timeout
           $processInfo = New-Object System.Diagnostics.ProcessStartInfo
           $processInfo.FileName = $compiler
           $processInfo.Arguments = $arguments -join ' '
@@ -251,9 +251,18 @@ jobs:
           $process = New-Object System.Diagnostics.Process
           $process.StartInfo = $processInfo
           $process.Start() | Out-Null
+          
+          # Wait with timeout (30 seconds)
+          $timeout = 30000
+          if (-not $process.WaitForExit($timeout)) {
+            Write-Host "Compiler timeout after 30 seconds, killing process"
+            $process.Kill()
+            Pop-Location
+            throw "Compiler timed out"
+          }
+          
           $stdout = $process.StandardOutput.ReadToEnd()
           $stderr = $process.StandardError.ReadToEnd()
-          $process.WaitForExit()
           $exitCode = $process.ExitCode
           
           Pop-Location
