@@ -41,13 +41,13 @@ LS_BuildGui() {
     ]
     for path in logoPaths {
         if (FileExist(path)) {
-            myGui.AddPicture("x610 y12 w110 h36 +BackgroundTrans", path)
-            break
+        myGui.AddPicture("x610 y12 h40 +BackgroundTrans", path)
+        break
         }
     }
     logoPath := LAB_STATION_PROJECT_ROOT "\img\DecentraLabs.png"
     if (FileExist(logoPath)) {
-        myGui.AddPicture("x610 y12 w110 h36 +BackgroundTrans", logoPath)
+        myGui.AddPicture("x610 y12 h40 +BackgroundTrans", logoPath)
     }
     
     ; Status section
