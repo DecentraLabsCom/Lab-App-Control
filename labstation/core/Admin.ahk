@@ -21,7 +21,7 @@ LS_RelaunchAsAdmin() {
     if (A_IsAdmin) {
         return true
     }
-    params := "\"" A_ScriptFullPath "\""
+    params := '"' . A_ScriptFullPath . '"'
     for arg in A_Args {
         params .= " " . LS_EscapeCliArgument(arg)
     }
