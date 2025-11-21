@@ -7,6 +7,7 @@
 #Include ..\core\Json.ahk
 #Include ..\diagnostics\Status.ahk
 #Include ServiceState.ahk
+#Include SessionManager.ahk
 
 class LS_Recovery {
     static RebootIfNeeded(options := Map()) {

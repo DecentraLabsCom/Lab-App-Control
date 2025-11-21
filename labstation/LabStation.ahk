@@ -25,8 +25,10 @@
 #Include setup\Wizard.ahk
 #Include ui\Tray.ahk
 
-; Entry point
-LabStationMain(A_Args)
+; Entry point - call main function
+if (A_Args.Length > 0 || !A_IsCompiled) {
+    LabStationMain(A_Args)
+}
 
 LabStationMain(args) {
     if (args.Length = 0) {
