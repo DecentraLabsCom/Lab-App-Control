@@ -25,8 +25,8 @@
 #Include setup\Wizard.ahk
 #Include ui\Tray.ahk
 
+; Entry point
 LabStationMain(A_Args)
-return
 
 LabStationMain(args) {
     if (args.Length = 0) {
