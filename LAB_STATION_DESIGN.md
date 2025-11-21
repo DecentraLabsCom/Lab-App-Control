@@ -50,7 +50,7 @@ labstation/
 - **v1.5**
   - UI en bandeja del sistema con estado en tiempo real.
   - Gestión de servicios (instalación opcional como servicio Windows).
-  - Perfilado de aplicaciones (plantillas para distintas estaciones).
+  - Panel de diagnóstico rápido (verificar RemoteApp, WoL, autostart y exportar informe).
 
 - **v2.0**
   - Orquestación remota (API ligera + CLI remoto).
