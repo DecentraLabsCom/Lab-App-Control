@@ -156,8 +156,12 @@ jobs:
             Write-Host "All include files verified"
           }
           
-          Push-Location $compilerDir
-          $arguments = @('/in', $scriptPath, '/out', $outFile, '/bin', $binPath, '/silent', '1')
+          # Change to script directory for compilation (required for relative includes)
+          $scriptDir = Split-Path -Parent $scriptPath
+          $scriptName = Split-Path -Leaf $scriptPath
+          Push-Location $scriptDir
+          $arguments = @('/in', $scriptName, '/out', $outFile, '/bin', $binPath, '/silent', '1')
+          Write-Host "Running from: $scriptDir"
           Write-Host "Running: $compiler $($arguments -join ' ')"
           $output = & $compiler @arguments 2>&1
           $exitCode = $LASTEXITCODE
@@ -218,8 +222,12 @@ jobs:
           }
           Write-Host "Script verified, size: $((Get-Item $scriptPath).Length) bytes"
 
-          Push-Location $compilerDir
-          $arguments = @('/in', $scriptPath, '/out', $outFile, '/bin', $binPath, '/silent', '1')
+          # Change to script directory for compilation (required for relative includes)
+          $scriptDir = Split-Path -Parent $scriptPath
+          $scriptName = Split-Path -Leaf $scriptPath
+          Push-Location $scriptDir
+          $arguments = @('/in', $scriptName, '/out', $outFile, '/bin', $binPath, '/silent', '1')
+          Write-Host "Running from: $scriptDir"
           Write-Host "Running: $compiler $($arguments -join ' ')"
           $output = & $compiler @arguments 2>&1
           $exitCode = $LASTEXITCODE
