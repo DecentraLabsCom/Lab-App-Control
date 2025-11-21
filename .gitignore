@@ -1,5 +1,10 @@
 AppControl.exe
 AppControl.log
+
+LabStationPanel.exe
+LabStation.exe
+LabStation.log
+
 controller/AppControl.exe
 controller/tests/argdump/
 
