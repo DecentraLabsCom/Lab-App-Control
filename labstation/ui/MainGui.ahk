@@ -40,7 +40,7 @@ LS_BuildGui() {
     myGui.AddText("x24 y72", "📊 System Status")
     
     myGui.SetFont("s9 cE5E7EB")
-    myGui.StatusBox := myGui.AddEdit("x24 y100 w420 h180 -Wrap ReadOnly cD1FAE5 Background1F2937 +Border")
+    myGui.StatusBox := myGui.AddEdit("x24 y100 w420 h180 -Wrap ReadOnly -TabStop cD1FAE5 Background1F2937 +Border")
     myGui.StatusBox.Value := "Loading system status..."
     
     ; Status action buttons
@@ -60,44 +60,44 @@ LS_BuildGui() {
     
     ; Actions section
     myGui.SetFont("s11 Bold cFFFFFF")
-    myGui.AddText("x490 y72", "⚡ Quick Actions")
+    myGui.AddText("x490 y65", "⚡ Quick Actions")
     
-    myGui.SetFont("s8 c9CA3AF")
-    myGui.AddText("x490 y96 w230", "⚠️ All actions require administrator privileges")
+    myGui.SetFont("s8 cC08A2B")
+    myGui.AddText("x490 y85 w230", "⚠️ Actions require admin privileges")
     
     ; Session management buttons
-    myGui.SetFont("s9 Bold c1F2937")
-    myGui.AddText("x490 y120", "Session Management")
+    myGui.SetFont("s9 Bold c9CA3AF")
+    myGui.AddText("x490 y110", "Session Management")
     
     myGui.SetFont("s9 cFFFFFF")
-    guardBtn := myGui.AddButton("x490 y140 w220 h34", "🛡️ Start Session Guard")
+    guardBtn := myGui.AddButton("x490 y130 w220 h34", "🛡️ Start Session Guard")
     guardBtn.OnEvent("Click", LS_GuiRunGuard_Handler)
     
-    prepBtn := myGui.AddButton("x490 y180 w220 h34", "🔧 Prepare Session")
+    prepBtn := myGui.AddButton("x490 y170 w220 h34", "🔧 Prepare Session")
     prepBtn.OnEvent("Click", LS_GuiRunPrepare_Handler)
     
-    relBtn := myGui.AddButton("x490 y220 w220 h34", "🔄 Release + Reboot")
+    relBtn := myGui.AddButton("x490 y210 w220 h34", "🔄 Release + Reboot")
     relBtn.OnEvent("Click", LS_GuiRunRelease_Handler)
     
     ; Power management buttons
-    myGui.SetFont("s9 Bold c1F2937")
-    myGui.AddText("x490 y265", "Power Management")
+    myGui.SetFont("s9 Bold c9CA3AF")
+    myGui.AddText("x490 y255", "Power Management")
     
     myGui.SetFont("s9 cFFFFFF")
-    shutBtn := myGui.AddButton("x490 y285 w220 h34", "🔌 Shutdown (60s)")
+    shutBtn := myGui.AddButton("x490 y275 w220 h34", "🔌 Shutdown (60s)")
     shutBtn.OnEvent("Click", LS_GuiRunPowerShutdown_Handler)
     
-    hibBtn := myGui.AddButton("x490 y325 w220 h34", "💤 Hibernate (30s)")
+    hibBtn := myGui.AddButton("x490 y315 w220 h34", "💤 Hibernate (30s)")
     hibBtn.OnEvent("Click", LS_GuiRunPowerHibernate_Handler)
     
     ; Footer
     myGui.SetFont("s8 c6B7280")
-    myGui.AddText("x24 y340 w686 Center", "DecentraLabs © 2025 • Lab Station v3.0.0")
+    myGui.AddText("x24 y340 w686 Center", "DecentraLabs © 2025 · Lab Station v3.0.0")
+    refreshBtn.Focus()
     
     myGui.OnEvent("Close", (*) => myGui.Destroy())
     LS_GuiRefreshStatus(myGui)
     return myGui
-}
 
 LS_GuiRefreshStatus(gui) {
     status := LS_Status.Collect()

@@ -10,17 +10,31 @@ TryLaunch() {
 
     ; Prefer compiled LabStation next to this launcher
     if (FileExist(exePath)) {
-        Run Format('"{1}" gui', exePath)
+        LS_LaunchElevated(exePath, "gui")
         ExitApp
     }
 
     ; Fallback to source script if running from repo
     if (FileExist(scriptPath)) {
-        Run Format('"{1}" "{2}" gui', A_AhkPath, scriptPath)
+        args := Format('"{1}" gui', scriptPath)
+        LS_LaunchElevated(A_AhkPath, args)
         ExitApp
     }
 
     MsgBox "LabStation executable or script was not found. Expected at:`n" exePath "`nor`n" scriptPath, "Lab Station Panel", "OK Iconx"
+}
+
+LS_LaunchElevated(target, args := "") {
+    try {
+        if (A_IsAdmin) {
+            Run Format('"{1}" {2}', target, args)
+            return
+        }
+        shell := ComObject("Shell.Application")
+        shell.ShellExecute(target, args, A_WorkingDir, "runas", 1)
+    } catch as e {
+        MsgBox "Unable to launch Lab Station with elevation: " . e.Message, "Lab Station Panel", "OK Iconx"
+    }
 }
 
 TryLaunch()
