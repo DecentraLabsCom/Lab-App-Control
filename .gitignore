@@ -8,5 +8,8 @@ LabStation.log
 controller/AppControl.exe
 controller/tests/argdump/
 
+build.ps1
+
+/data
 /dev
 /UIA-v2-1.1.1
