@@ -232,15 +232,47 @@ jobs:
           Write-Host "Current directory: $(Get-Location)"
           Write-Host "Files in current directory:"
           Get-ChildItem | Select-Object -First 10 | Format-Table Name
-          $arguments = @('/in', $scriptName, '/out', $outFile, '/bin', $binPath)
+          
+          # Test script syntax first
+          Write-Host "Testing script syntax with AutoHotkey..."
+          $syntaxCheck = & $base /ErrorStdOut $scriptName 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Syntax check output: $syntaxCheck"
+            Pop-Location
+            throw "Script has syntax errors"
+          }
+          Write-Host "Syntax check passed"
+          
+          # Use absolute paths for compilation
+          $absScript = Join-Path $scriptDir $scriptName
+          $arguments = @('/in', $absScript, '/out', $outFile, '/bin', $binPath)
           Write-Host "Running from: $scriptDir"
           Write-Host "Running: $compiler $($arguments -join ' ')"
-          $output = & $compiler @arguments 2>&1
-          $exitCode = $LASTEXITCODE
+          
+          # Try to capture all output streams
+          $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+          $processInfo.FileName = $compiler
+          $processInfo.Arguments = $arguments -join ' '
+          $processInfo.RedirectStandardOutput = $true
+          $processInfo.RedirectStandardError = $true
+          $processInfo.UseShellExecute = $false
+          $processInfo.CreateNoWindow = $true
+          
+          $process = New-Object System.Diagnostics.Process
+          $process.StartInfo = $processInfo
+          $process.Start() | Out-Null
+          $stdout = $process.StandardOutput.ReadToEnd()
+          $stderr = $process.StandardError.ReadToEnd()
+          $process.WaitForExit()
+          $exitCode = $process.ExitCode
+          
           Pop-Location
-
-          Write-Host "Compiler output:"
-          Write-Host $output
+          
+          Write-Host "Compiler stdout:"
+          Write-Host $stdout
+          Write-Host "Compiler stderr:"
+          Write-Host $stderr
+          Write-Host "Exit code: $exitCode"
 
           if ($null -eq $exitCode) {
             $exitCode = 0
