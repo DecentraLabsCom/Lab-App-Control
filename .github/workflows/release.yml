@@ -352,10 +352,11 @@ jobs:
         shell: powershell
         run: |
           $destDir = Join-Path $PWD 'dist'
-          New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+          $logoDir = Join-Path $destDir 'img'
+          New-Item -ItemType Directory -Force -Path $logoDir | Out-Null
           $logo = Join-Path $PWD 'img/DecentraLabs.png'
           if (Test-Path $logo) {
-            Copy-Item -Path $logo -Destination (Join-Path $destDir 'DecentraLabs.png') -Force
+            Copy-Item -Path $logo -Destination (Join-Path $logoDir 'DecentraLabs.png') -Force
           } else {
             Write-Host "Logo not found at $logo; continuing without it."
           }
@@ -382,7 +383,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: LabStation-assets
-          path: dist/DecentraLabs.png
+          path: dist/img/DecentraLabs.png
 
       - name: Upload WindowSpy artifact
         uses: actions/upload-artifact@v4
@@ -398,7 +399,7 @@ jobs:
             dist/LabStation.exe
             dist/LabStationPanel.exe
             dist/WindowSpy.exe
-            dist/DecentraLabs.png
+            dist/img/DecentraLabs.png
           tag_name: ${{ steps.release_meta.outputs.tag }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

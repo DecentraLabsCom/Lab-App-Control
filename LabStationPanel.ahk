@@ -8,11 +8,13 @@
 TryExtractLogo() {
     if (!A_IsCompiled)
         return
-    target := A_ScriptDir "\DecentraLabs.png"
+    targetDir := A_ScriptDir "\img"
+    target := targetDir "\DecentraLabs.png"
+    try DirCreate(targetDir)
     if (FileExist(target))
         return
     try {
-        ; Copies the embedded PNG next to the EXE.
+        ; Copies the embedded PNG next to the EXE inside /img.
         FileInstall "img\DecentraLabs.png", target, true
     }
 }

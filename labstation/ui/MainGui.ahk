@@ -34,6 +34,17 @@ LS_BuildGui() {
     myGui.AddText("x24 y16", "🖥️ Lab Station")
     myGui.SetFont("s9 c9CA3AF")
     myGui.AddText("x24 yp+28", "Workstation management console")
+    logoPaths := [
+        LAB_STATION_PROJECT_ROOT "\img\DecentraLabs.png",
+        A_ScriptDir "\img\DecentraLabs.png",
+        A_ScriptDir "\DecentraLabs.png"
+    ]
+    for path in logoPaths {
+        if (FileExist(path)) {
+            myGui.AddPicture("x610 y12 w110 h36 +BackgroundTrans", path)
+            break
+        }
+    }
     logoPath := LAB_STATION_PROJECT_ROOT "\img\DecentraLabs.png"
     if (FileExist(logoPath)) {
         myGui.AddPicture("x610 y12 w110 h36 +BackgroundTrans", logoPath)
@@ -91,12 +102,12 @@ LS_BuildGui() {
     shutBtn := myGui.AddButton("x490 y275 w220 h34", "🔌 Shutdown (60s)")
     shutBtn.OnEvent("Click", LS_GuiRunPowerShutdown_Handler)
     
-    hibBtn := myGui.AddButton("x490 y300 w220 h34", "💤 Hibernate (30s)")
+    hibBtn := myGui.AddButton("x490 y315 w220 h34", "💤 Hibernate (30s)")
     hibBtn.OnEvent("Click", LS_GuiRunPowerHibernate_Handler)
     
     ; Footer
     myGui.SetFont("s8 c6B7280")
-    myGui.AddText("x24 y360 w686 Center", "DecentraLabs © 2025 · Lab Station v3.0.0")
+    myGui.AddText("x24 y350 w686 Center", "DecentraLabs © 2025 · Lab Station v3.0.0")
     refreshBtn.Focus()
     
     myGui.OnEvent("Close", (*) => myGui.Destroy())
