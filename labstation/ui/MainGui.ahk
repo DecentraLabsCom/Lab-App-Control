@@ -34,6 +34,10 @@ LS_BuildGui() {
     myGui.AddText("x24 y16", "🖥️ Lab Station")
     myGui.SetFont("s9 c9CA3AF")
     myGui.AddText("x24 yp+28", "Workstation management console")
+    logoPath := LAB_STATION_PROJECT_ROOT "\img\DecentraLabs.png"
+    if (FileExist(logoPath)) {
+        myGui.AddPicture("x610 y12 w110 h36 +BackgroundTrans", logoPath)
+    }
     
     ; Status section
     myGui.SetFont("s11 Bold cFFFFFF")
@@ -238,4 +242,3 @@ LS_GuiRunPowerShutdown_Handler(ctrl, info) {
 LS_GuiRunPowerHibernate_Handler(ctrl, info) {
     LS_GuiRunPower("hibernate")
 }
-

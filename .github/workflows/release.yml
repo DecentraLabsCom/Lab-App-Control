@@ -123,9 +123,11 @@ jobs:
           $outDir = Join-Path $PWD 'dist'
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
           $outFile = Join-Path $outDir 'AppControl.exe'
+          $iconPath = (Resolve-Path 'img/favicon.ico').Path
           Write-Host "Compiler: $compiler"
           Write-Host "Base: $base"
           Write-Host "Bin: $binPath"
+          Write-Host "Icon: $iconPath"
           Write-Host "Script: $scriptPath"
           Write-Host "Output: $outFile"
           
@@ -166,7 +168,7 @@ jobs:
           
           # Use absolute paths for compilation
           $absScript = Join-Path $scriptDir $scriptName
-          $arguments = @('/in', $absScript, '/out', $outFile, '/bin', $binPath)
+          $arguments = @('/in', $absScript, '/out', $outFile, '/bin', $binPath, '/icon', $iconPath)
           Write-Host "Running from: $scriptDir"
           Write-Host "Running: $compiler $($arguments -join ' ')"
           
@@ -220,9 +222,11 @@ jobs:
           $outDir = Join-Path $PWD 'dist'
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
           $outFile = Join-Path $outDir 'LabStation.exe'
+          $iconPath = (Resolve-Path 'img/favicon.ico').Path
           Write-Host "Compiler: $compiler"
           Write-Host "Base: $base"
           Write-Host "Bin: $binPath"
+          Write-Host "Icon: $iconPath"
           Write-Host "Script: $scriptPath"
           Write-Host "Output: $outFile"
 
@@ -242,7 +246,7 @@ jobs:
           
           # Use absolute paths for compilation
           $absScript = Join-Path $scriptDir $scriptName
-          $arguments = @('/in', $absScript, '/out', $outFile, '/bin', $binPath)
+          $arguments = @('/in', $absScript, '/out', $outFile, '/bin', $binPath, '/icon', $iconPath)
           Write-Host "Running from: $scriptDir"
           Write-Host "Running: $compiler $($arguments -join ' ')"
           
@@ -295,14 +299,16 @@ jobs:
           $outDir = Join-Path $PWD 'dist'
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
           $outFile = Join-Path $outDir 'LabStationPanel.exe'
+          $iconPath = (Resolve-Path 'img/favicon.ico').Path
           Write-Host "Compiler: $compiler"
           Write-Host "Base: $base"
           Write-Host "Bin: $binPath"
+          Write-Host "Icon: $iconPath"
           Write-Host "Script: $scriptPath"
           Write-Host "Output: $outFile"
 
           Push-Location $compilerDir
-          $arguments = @('/in', $scriptPath, '/out', $outFile, '/bin', $binPath, '/silent', '1')
+          $arguments = @('/in', $scriptPath, '/out', $outFile, '/bin', $binPath, '/icon', $iconPath, '/silent', '1')
           Write-Host "Running: $compiler $($arguments -join ' ')"
           $output = & $compiler @arguments 2>&1
           $exitCode = $LASTEXITCODE
@@ -342,6 +348,18 @@ jobs:
           $destFile = Join-Path $destDir 'WindowSpy.exe'
           Copy-Item -Path $source -Destination $destFile -Force
 
+      - name: Stage assets (logo)
+        shell: powershell
+        run: |
+          $destDir = Join-Path $PWD 'dist'
+          New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+          $logo = Join-Path $PWD 'img/DecentraLabs.png'
+          if (Test-Path $logo) {
+            Copy-Item -Path $logo -Destination (Join-Path $destDir 'DecentraLabs.png') -Force
+          } else {
+            Write-Host "Logo not found at $logo; continuing without it."
+          }
+
       - name: Upload AppControl artifact
         uses: actions/upload-artifact@v4
         with:
@@ -360,6 +378,12 @@ jobs:
           name: LabStationPanel
           path: dist/LabStationPanel.exe
 
+      - name: Upload assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: LabStation-assets
+          path: dist/DecentraLabs.png
+
       - name: Upload WindowSpy artifact
         uses: actions/upload-artifact@v4
         with:
@@ -374,6 +398,7 @@ jobs:
             dist/LabStation.exe
             dist/LabStationPanel.exe
             dist/WindowSpy.exe
+            dist/DecentraLabs.png
           tag_name: ${{ steps.release_meta.outputs.tag }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
