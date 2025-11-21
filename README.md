@@ -69,6 +69,31 @@ This single-instance AHK v2 script launches your lab Windows desktop control app
 
 ***
 
+### 🧪 Lab Station (Fase 1)
+
+Lab Station es la evolución del proyecto hacia una estación de trabajo completa dedicada al laboratorio. Vive en la carpeta `labstation/` y añade:
+
+* `LabStation.ahk` – CLI/Wizard para tareas de hardening
+* Automatización del registro para RemoteApp (`fAllowUnlistedRemotePrograms`)
+* Configuración de Wake-on-LAN (adaptadores + plan de energía)
+* Registro de inicio automático para `dLabAppControl`
+
+Uso rápido (ejecutar como administrador):
+
+```powershell
+# Asistente interactivo
+".\labstation\LabStation.ahk" setup
+
+# Operaciones independientes
+".\labstation\LabStation.ahk" remoteapp
+".\labstation\LabStation.ahk" wol
+".\labstation\LabStation.ahk" autostart "C:\Tools\dLabAppControl.exe"
+".\labstation\LabStation.ahk" launch-app-control "Chrome_WidgetWin_1" "C:\App\app.exe"
+```
+
+Consulta [LAB_STATION_DESIGN.md](LAB_STATION_DESIGN.md) para detalles de arquitectura y roadmap.
+***
+
 ### 🔧 Installation and Use
 
 #### **Option 1: Using the executable**
