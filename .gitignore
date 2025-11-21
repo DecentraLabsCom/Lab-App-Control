@@ -5,10 +5,11 @@ LabStationPanel.exe
 LabStation.exe
 LabStation.log
 
+build.ps1
+
 controller/AppControl.exe
 controller/tests/argdump/
-
-build.ps1
+labstation/data
 
 /data
 /dev
