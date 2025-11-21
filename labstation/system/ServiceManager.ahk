@@ -57,4 +57,3 @@ class LS_ServiceManager {
         return capture["stdout"] ? capture["stdout"] : capture["stderr"]
     }
 }
-*** End Patch

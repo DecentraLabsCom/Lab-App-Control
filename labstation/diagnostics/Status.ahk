@@ -471,4 +471,3 @@ class LS_Status {
         return LAB_STATION_PROJECT_ROOT "\" path
     }
 }
-*** End Patch
