@@ -126,7 +126,7 @@ LS_GuiRefreshStatus(gui) {
     gui.SetupButton.Enabled := needsSetup
     gui.SetupButton.Text := needsSetup ? "🛠️ Run Setup Wizard" : "🛠️ Setup already applied"
     gui.SetupChip.Text := needsSetup ? "Setup status: Needs action" : "Setup status: OK"
-    gui.SetupChip.SetColor(needsSetup ? "FFB020" : "9CA3AF")
+    gui.SetupChip.Opt("c" . (needsSetup ? "FFB020" : "9CA3AF"))
 
     summary := []
     summary.Push("═══════════════════════════════════════")
