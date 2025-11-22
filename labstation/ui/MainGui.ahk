@@ -8,7 +8,6 @@
 #Include ..\diagnostics\Status.ahk
 #Include ..\service\SessionManager.ahk
 #Include ..\service\SessionGuard.ahk
-#Include ..\system\PowerManager.ahk
 
 ; Entry point for LabStation.exe gui
 LS_StartMainGui() {
@@ -25,11 +24,12 @@ LS_BuildGui() {
     myGui := Gui("+Resize", "Lab Station Control Panel")
     myGui.BackColor := "0F1419"
     myGui.SetFont("s10", "Segoe UI")
-    
-    ; Store status box reference in GUI object for later access
+
     myGui.StatusBox := ""
-    
-    ; Header with icon
+    myGui.SetupButton := ""
+    myGui.SetupChip := ""
+
+    ; Header
     myGui.SetFont("s17 Bold cFFFFFF", "Bahnschrift")
     myGui.AddText("x24 y16", "🖥️ Lab Station")
     myGui.SetFont("s9 c9CA3AF")
@@ -41,113 +41,112 @@ LS_BuildGui() {
     ]
     for path in logoPaths {
         if (FileExist(path)) {
-        myGui.AddPicture("x500 y12 w196 h40 +BackgroundTrans", path)
-        break
+            myGui.AddPicture("x500 y12 h40 +BackgroundTrans", path)
+            break
         }
     }
-    logoPath := LAB_STATION_PROJECT_ROOT "\img\DecentraLabs.png"
-    if (FileExist(logoPath)) {
-        myGui.AddPicture("x500 y12 w196 h40 +BackgroundTrans", logoPath)
-    }
-    
+    myGui.SetFont("s8 cC08A2B")
+    myGui.SetupChip := myGui.AddText("x24 y56 w420", "Setup status: checking...")
+
     ; Status section
     myGui.SetFont("s11 Bold cFFFFFF")
-    myGui.AddText("x24 y72", "📊 System Status")
-    
+    myGui.AddText("x24 y82", "📊 System Status")
+
     myGui.SetFont("s9 cE5E7EB")
-    myGui.StatusBox := myGui.AddEdit("x24 y100 w420 h180 -Wrap ReadOnly -TabStop cD1FAE5 Background1F2937 +Border")
+    myGui.StatusBox := myGui.AddEdit("x24 y110 w420 h180 -Wrap ReadOnly -TabStop cD1FAE5 Background1F2937 +Border")
     myGui.StatusBox.Value := "Loading system status..."
-    
+
     ; Status action buttons
     myGui.SetFont("s9 cFFFFFF")
-    refreshBtn := myGui.AddButton("x24 y290 w130 h32", "🔄 Refresh")
+    refreshBtn := myGui.AddButton("x24 y300 w130 h32", "🔄 Refresh")
     refreshBtn.OnEvent("Click", LS_GuiRefreshStatus_Handler)
-    
-    exportBtn := myGui.AddButton("x164 y290 w150 h32", "💾 Export JSON")
+
+    exportBtn := myGui.AddButton("x164 y300 w150 h32", "💾 Export JSON")
     exportBtn.OnEvent("Click", LS_GuiExportStatus_Handler)
-    
-    logBtn := myGui.AddButton("x324 y290 w120 h32", "📄 Open Log")
+
+    logBtn := myGui.AddButton("x324 y300 w120 h32", "📄 Open Log")
     logBtn.OnEvent("Click", LS_GuiOpenLog_Handler)
-    
-    ; Vertical separator
+
+    ; Separator
     myGui.SetFont("s1 c374151")
-    myGui.AddText("x470 y16 w2 h310", "│")
-    
-    ; Actions section
+    myGui.AddText("x470 y16 w2 h330", "│")
+
+    ; Actions
     myGui.SetFont("s11 Bold cFFFFFF")
     myGui.AddText("x490 y65", "⚡ Quick Actions")
-    
+
     myGui.SetFont("s8 cC08A2B")
     myGui.AddText("x490 y85 w230", "⚠️ Actions require admin privileges")
-    
-    ; Session management buttons
+
     myGui.SetFont("s9 Bold c9CA3AF")
-    myGui.AddText("x490 y110", "Session Management")
-    
+    myGui.AddText("x490 y110", "Setup & Sessions")
+
     myGui.SetFont("s9 cFFFFFF")
-    guardBtn := myGui.AddButton("x490 y130 w220 h34", "🛡️ Start Session Guard")
+    myGui.SetupButton := myGui.AddButton("x490 y130 w220 h34", "🛠️ Run Setup Wizard")
+    myGui.SetupButton.OnEvent("Click", LS_GuiRunSetup_Handler)
+
+    guardBtn := myGui.AddButton("x490 y180 w220 h34", "🛡️ Start Session Guard")
     guardBtn.OnEvent("Click", LS_GuiRunGuard_Handler)
-    
-    prepBtn := myGui.AddButton("x490 y170 w220 h34", "🔧 Prepare Session")
+
+    prepBtn := myGui.AddButton("x490 y220 w220 h34", "🔧 Prepare Session")
     prepBtn.OnEvent("Click", LS_GuiRunPrepare_Handler)
-    
-    relBtn := myGui.AddButton("x490 y210 w220 h34", "🔄 Release + Reboot")
+
+    relBtn := myGui.AddButton("x490 y260 w220 h34", "🔄 Release + Reboot")
     relBtn.OnEvent("Click", LS_GuiRunRelease_Handler)
-    
-    ; Power management buttons
-    myGui.SetFont("s9 Bold c9CA3AF")
-    myGui.AddText("x490 y255", "Power Management")
-    
-    myGui.SetFont("s9 cFFFFFF")
-    shutBtn := myGui.AddButton("x490 y275 w220 h34", "🔌 Shutdown (60s)")
-    shutBtn.OnEvent("Click", LS_GuiRunPowerShutdown_Handler)
-    
-    hibBtn := myGui.AddButton("x490 y315 w220 h34", "💤 Hibernate (30s)")
-    hibBtn.OnEvent("Click", LS_GuiRunPowerHibernate_Handler)
-    
+
     ; Footer
     myGui.SetFont("s8 c6B7280")
-    myGui.AddText("x24 y350 w686 Center", "DecentraLabs © 2025 · Lab Station v3.0.0")
+    myGui.AddText("x24 y360 w686 Center", "DecentraLabs © 2025 · Lab Station v3.0.0")
     refreshBtn.Focus()
-    
+
     myGui.OnEvent("Close", (*) => myGui.Destroy())
     LS_GuiRefreshStatus(myGui)
     return myGui
 }
 
+LS_GuiNeedsSetup(status) {
+    ; Basic readiness check: summary.ready false OR missing core features
+    if (status.Has("summary") && status["summary"].Has("ready") && !status["summary"]["ready"])
+        return true
+    if (status.Has("remoteAppEnabled") && !status["remoteAppEnabled"])
+        return true
+    if (status.Has("autoStartConfigured") && !status["autoStartConfigured"])
+        return true
+    if (status.Has("wake")) {
+        wake := status["wake"]
+        if (wake.Has("armedCount") && wake["armedCount"] = 0)
+            return true
+    }
+    return false
+}
+
 LS_GuiRefreshStatus(gui) {
     status := LS_Status.Collect()
+    needsSetup := LS_GuiNeedsSetup(status)
+    gui.SetupButton.Enabled := needsSetup
+    gui.SetupButton.Text := needsSetup ? "🛠️ Run Setup Wizard" : "🛠️ Setup already applied"
+    gui.SetupChip.Text := needsSetup ? "Setup status: Needs action" : "Setup status: OK"
+    gui.SetupChip.SetColor(needsSetup ? "FFB020" : "9CA3AF")
+
     summary := []
-    
-    ; Header
     summary.Push("═══════════════════════════════════════")
     summary.Push("  SYSTEM STATUS REPORT")
     summary.Push("═══════════════════════════════════════")
     summary.Push("")
-    
-    ; Host info
     summary.Push("🖥️  Host: " . (status.Has("host") ? status["host"] : A_ComputerName))
     summary.Push("")
-    
-    ; Readiness
     ready := (status.Has("summary") && status["summary"].Has("ready")) ? status["summary"]["ready"] : false
     readyIcon := ready ? "✅" : "⚠️"
     summary.Push(readyIcon . "  Ready: " . (ready ? "Yes" : "Needs attention"))
     summary.Push("")
-    
-    ; Local mode
     localMode := status.Has("localModeEnabled") ? status["localModeEnabled"] : false
     localIcon := localMode ? "🔒" : "🌐"
     summary.Push(localIcon . "  Local mode: " . (localMode ? "Enabled" : "Disabled"))
     summary.Push("")
-    
-    ; Active sessions
     hasUsers := status.Has("sessions") && status["sessions"].Has("hasOtherUsers") && status["sessions"]["hasOtherUsers"]
     userIcon := hasUsers ? "👤" : "○"
     summary.Push(userIcon . "  Active sessions: " . (hasUsers ? "Present" : "None"))
     summary.Push("")
-    
-    ; Issues
     if (status.Has("summary") && status["summary"].Has("issues") && status["summary"]["issues"].Length > 0) {
         summary.Push("⚠️  ISSUES DETECTED:")
         for issue in status["summary"]["issues"] {
@@ -156,10 +155,8 @@ LS_GuiRefreshStatus(gui) {
     } else {
         summary.Push("✓  No issues detected")
     }
-    
     summary.Push("")
     summary.Push("Last refresh: " . FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss"))
-    
     gui.StatusBox.Value := LS_StrJoin(summary, "`r`n")
 }
 
@@ -188,6 +185,15 @@ LS_GuiEnsureAdmin() {
     return true
 }
 
+LS_GuiRunSetup() {
+    if (!LS_GuiEnsureAdmin())
+        return
+    LS_RunSetupWizard()
+    ; Refresh status after setup
+    if (IsSet(LS_GUI) && LS_GUI)
+        LS_GuiRefreshStatus(LS_GUI)
+}
+
 LS_GuiRunGuard() {
     if (!LS_GuiEnsureAdmin())
         return
@@ -212,16 +218,7 @@ LS_GuiRunRelease() {
     MsgBox (success ? "Release-session completed" : "Release-session finished with warnings"), "Lab Station", icon
 }
 
-LS_GuiRunPower(mode) {
-    if (!LS_GuiEnsureAdmin())
-        return
-    opts := mode = "shutdown" ? Map("delay", 60, "reason", "GUI action") : Map("delay", 30, "reason", "GUI action")
-    success := mode = "shutdown" ? LS_PowerManager.Shutdown(opts) : LS_PowerManager.Hibernate(opts)
-    icon := success ? "OK Iconi" : "OK Iconx"
-    MsgBox (success ? "Power action scheduled" : "Power action failed (see log)"), "Lab Station", icon
-}
-
-; Event handlers - receive button control and can access Gui via control.Gui
+; Event handlers
 LS_GuiRefreshStatus_Handler(ctrl, info) {
     LS_GuiRefreshStatus(ctrl.Gui)
 }
@@ -234,6 +231,10 @@ LS_GuiOpenLog_Handler(ctrl, info) {
     LS_GuiOpenLog()
 }
 
+LS_GuiRunSetup_Handler(ctrl, info) {
+    LS_GuiRunSetup()
+}
+
 LS_GuiRunGuard_Handler(ctrl, info) {
     LS_GuiRunGuard()
 }
@@ -244,12 +245,4 @@ LS_GuiRunPrepare_Handler(ctrl, info) {
 
 LS_GuiRunRelease_Handler(ctrl, info) {
     LS_GuiRunRelease()
-}
-
-LS_GuiRunPowerShutdown_Handler(ctrl, info) {
-    LS_GuiRunPower("shutdown")
-}
-
-LS_GuiRunPowerHibernate_Handler(ctrl, info) {
-    LS_GuiRunPower("hibernate")
 }
