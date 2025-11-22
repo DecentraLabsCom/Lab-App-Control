@@ -38,15 +38,31 @@ LS_RunSetupWizard() {
 }
 
 LS_WizardSelectMode() {
-    prompt := "Select the station profile:" . "`n`n" .
-        "Yes = Dedicated lab server (LABUSER autologon + lockdown)." . "`n" .
-        "No = Hybrid station (coexists with local usage)." . "`n" .
-        "Cancel = Exit the wizard."
-    choice := MsgBox(prompt, "Lab Station Setup", "YesNoCancel Iconi")
-    if (choice = "Cancel") {
-        return ""
-    }
-    return choice = "Yes" ? "server" : "hybrid"
+    gui := Gui("+AlwaysOnTop +ToolWindow", "Lab Station Setup")
+    gui.BackColor := "0F1419"
+    gui.SetFont("s10", "Segoe UI")
+
+    gui.SetFont("s14 Bold cFFFFFF", "Bahnschrift")
+    gui.AddText("x20 y14", "⚙️ Select station profile")
+    gui.SetFont("s9 c9CA3AF")
+    gui.AddText("x20 yp+24 w400", "Non-destructive: close this window to cancel. Choose the mode that matches the host.")
+
+    gui.SetFont("s10 cFFFFFF")
+    serverBtn := gui.AddButton("x20 y78 w300 h36", "Dedicated Lab Server")
+    hybridBtn := gui.AddButton("x20 y122 w300 h36", "Hybrid Lab Station")
+    gui.SetFont("s8 cC08A2B")
+    gui.AddText("x20 y166 w360", "Dedicated: LABUSER autologon + lockdown. Hybrid: coexists with local use.")
+
+    result := ""
+    serverBtn.OnEvent("Click", (*) => (result := "server", gui.Destroy()))
+    hybridBtn.OnEvent("Click", (*) => (result := "hybrid", gui.Destroy()))
+    gui.OnEvent("Close", (*) => gui.Destroy())
+
+    gui.Show("w360 h200")
+    while (gui && gui.Visible && result = "")
+        Sleep 50
+    try gui.Destroy()
+    return result
 }
 
 LS_WizardServerSteps() {
