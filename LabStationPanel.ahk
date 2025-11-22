@@ -13,10 +13,11 @@ TryExtractLogo() {
     try DirCreate(targetDir)
     if (FileExist(target))
         return
-    try {
-        ; Copies the embedded PNG next to the EXE inside /img.
-        FileInstall "img\DecentraLabs.png", target, true
-    }
+    ; Note: FileInstall disabled - logo distributed separately in img/ folder
+    ; The GUI will find it at runtime via the distributed img/DecentraLabs.png
+    ; try {
+    ;     FileInstall "img\DecentraLabs.png", target, true
+    ; }
 }
 
 TryLaunch() {
