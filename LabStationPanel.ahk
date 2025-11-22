@@ -4,6 +4,28 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 
+; Prevent execution during compilation
+;@Ahk2Exe-SetMainIcon img\favicon.ico
+if (A_LineFile = A_ScriptFullPath && !A_IsCompiled) {
+    ; Running as .ahk script - execute immediately
+    Main()
+    ExitApp
+}
+
+; Auto-execute for compiled .exe
+if (A_IsCompiled) {
+    Main()
+    ExitApp
+}
+
+; Compilation mode - do nothing, just parse
+ExitApp
+
+Main() {
+    TryExtractLogo()
+    TryLaunch()
+}
+
 ; Embed logo for compiled builds so the GUI can find it.
 TryExtractLogo() {
     if (!A_IsCompiled)
@@ -54,9 +76,4 @@ LS_LaunchElevated(target, args := "") {
     } catch as e {
         MsgBox "Unable to launch Lab Station with elevation: " . e.Message, "Lab Station Panel", "OK Iconx"
     }
-}
-
-; Only run when script is executed (not during compilation)
-if (!A_IsCompiled || A_ScriptName = "LabStationPanel.exe") {
-    TryLaunch()
 }
