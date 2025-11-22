@@ -59,9 +59,11 @@ LS_WizardSelectMode() {
     gui.OnEvent("Close", (*) => gui.Destroy())
 
     gui.Show("w360 h200")
-    while (gui && gui.Visible && result = "")
+    while (IsObject(gui) && gui.Visible && result = "")
         Sleep 50
-    try gui.Destroy()
+    if (IsObject(gui)) {
+        try gui.Destroy()
+    }
     return result
 }
 
