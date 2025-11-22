@@ -41,12 +41,12 @@ LS_BuildGui() {
     ]
     for path in logoPaths {
         if (FileExist(path)) {
-            myGui.AddPicture("x500 y12 h40 +BackgroundTrans", path)
+            myGui.AddPicture("x610 y12 w196 h40 +BackgroundTrans", path)
             break
         }
     }
     myGui.SetFont("s8 cC08A2B")
-    myGui.SetupChip := myGui.AddText("x24 y56 w420", "Setup status: checking...")
+    myGui.SetupChip := myGui.AddText("x180 y82 w200", "(checking)")
 
     ; Status section
     myGui.SetFont("s11 Bold cFFFFFF")
@@ -79,19 +79,22 @@ LS_BuildGui() {
     myGui.AddText("x490 y85 w230", "⚠️ Actions require admin privileges")
 
     myGui.SetFont("s9 Bold c9CA3AF")
-    myGui.AddText("x490 y110", "Setup & Sessions")
+    myGui.AddText("x490 y110", "Setup")
 
     myGui.SetFont("s9 cFFFFFF")
     myGui.SetupButton := myGui.AddButton("x490 y130 w220 h34", "🛠️ Run Setup Wizard")
     myGui.SetupButton.OnEvent("Click", LS_GuiRunSetup_Handler)
 
-    guardBtn := myGui.AddButton("x490 y180 w220 h34", "🛡️ Start Session Guard")
+    myGui.SetFont("s9 Bold c9CA3AF")
+    myGui.AddText("x490 y180", "Setup Management")
+
+    guardBtn := myGui.AddButton("x490 y200 w220 h34", "🛡️ Start Session Guard")
     guardBtn.OnEvent("Click", LS_GuiRunGuard_Handler)
 
-    prepBtn := myGui.AddButton("x490 y220 w220 h34", "🔧 Prepare Session")
+    prepBtn := myGui.AddButton("x490 y240 w220 h34", "🔧 Prepare Session")
     prepBtn.OnEvent("Click", LS_GuiRunPrepare_Handler)
 
-    relBtn := myGui.AddButton("x490 y260 w220 h34", "🔄 Release + Reboot")
+    relBtn := myGui.AddButton("x490 y280 w220 h34", "🔄 Release + Reboot")
     relBtn.OnEvent("Click", LS_GuiRunRelease_Handler)
 
     ; Footer
@@ -125,7 +128,7 @@ LS_GuiRefreshStatus(gui) {
     needsSetup := LS_GuiNeedsSetup(status)
     gui.SetupButton.Enabled := needsSetup
     gui.SetupButton.Text := needsSetup ? "🛠️ Run Setup Wizard" : "🛠️ Setup already applied"
-    gui.SetupChip.Text := needsSetup ? "Setup status: Needs action" : "Setup status: OK"
+    gui.SetupChip.Text := needsSetup ? "(Needs action)" : "(OK)"
     gui.SetupChip.Opt("c" . (needsSetup ? "FFB020" : "9CA3AF"))
 
     summary := []
