@@ -41,16 +41,17 @@ LS_BuildGui() {
     ]
     for path in logoPaths {
         if (FileExist(path)) {
-            myGui.AddPicture("x610 y12 w196 h40 +BackgroundTrans", path)
+            myGui.AddPicture("x500 y12 w196 h40 +BackgroundTrans", path)
             break
         }
     }
-    myGui.SetFont("s8 cC08A2B")
-    myGui.SetupChip := myGui.AddText("x180 y82 w200", "(checking)")
 
     ; Status section
     myGui.SetFont("s11 Bold cFFFFFF")
     myGui.AddText("x24 y82", "📊 System Status")
+
+    myGui.SetFont("s8 cC08A2B")
+    myGui.SetupChip := myGui.AddText("x150 y85 w200", "(checking)")
 
     myGui.SetFont("s9 cE5E7EB")
     myGui.StatusBox := myGui.AddEdit("x24 y110 w420 h180 -Wrap ReadOnly -TabStop cD1FAE5 Background1F2937 +Border")
@@ -73,10 +74,10 @@ LS_BuildGui() {
 
     ; Actions
     myGui.SetFont("s11 Bold cFFFFFF")
-    myGui.AddText("x490 y65", "⚡ Quick Actions")
+    myGui.AddText("x485 y65", "⚡ Quick Actions")
 
     myGui.SetFont("s8 cC08A2B")
-    myGui.AddText("x490 y85 w230", "⚠️ Actions require admin privileges")
+    myGui.AddText("x495 y85 w230", "⚠️ Actions require admin privileges")
 
     myGui.SetFont("s9 Bold c9CA3AF")
     myGui.AddText("x490 y110", "Setup")
