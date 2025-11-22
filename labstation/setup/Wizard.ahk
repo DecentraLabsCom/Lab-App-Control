@@ -38,31 +38,31 @@ LS_RunSetupWizard() {
 }
 
 LS_WizardSelectMode() {
-    gui := Gui("+AlwaysOnTop +ToolWindow", "Lab Station Setup")
-    gui.BackColor := "0F1419"
-    gui.SetFont("s10", "Segoe UI")
+    profileGui := Gui("+AlwaysOnTop +ToolWindow", "Lab Station Setup")
+    profileGui.BackColor := "0F1419"
+    profileGui.SetFont("s10", "Segoe UI")
 
-    gui.SetFont("s14 Bold cFFFFFF", "Bahnschrift")
-    gui.AddText("x20 y14", "⚙️ Select station profile")
-    gui.SetFont("s9 c9CA3AF")
-    gui.AddText("x20 yp+24 w400", "Non-destructive: close this window to cancel. Choose the mode that matches the host.")
+    profileGui.SetFont("s14 Bold cFFFFFF", "Bahnschrift")
+    profileGui.AddText("x20 y14", "⚙️ Select station profile")
+    profileGui.SetFont("s9 c9CA3AF")
+    profileGui.AddText("x20 yp+24 w400", "Non-destructive: close this window to cancel. Choose the mode that matches the host.")
 
-    gui.SetFont("s10 cFFFFFF")
-    serverBtn := gui.AddButton("x20 y78 w300 h36", "Dedicated Lab Server")
-    hybridBtn := gui.AddButton("x20 y122 w300 h36", "Hybrid Lab Station")
-    gui.SetFont("s8 cC08A2B")
-    gui.AddText("x20 y166 w360", "Dedicated: LABUSER autologon + lockdown. Hybrid: coexists with local use.")
+    profileGui.SetFont("s10 cFFFFFF")
+    serverBtn := profileGui.AddButton("x20 y78 w300 h36", "Dedicated Lab Server")
+    hybridBtn := profileGui.AddButton("x20 y122 w300 h36", "Hybrid Lab Station")
+    profileGui.SetFont("s8 cC08A2B")
+    profileGui.AddText("x20 y166 w360", "Dedicated: LABUSER autologon + lockdown. Hybrid: coexists with local use.")
 
     result := ""
-    serverBtn.OnEvent("Click", (*) => (result := "server", gui.Destroy()))
-    hybridBtn.OnEvent("Click", (*) => (result := "hybrid", gui.Destroy()))
-    gui.OnEvent("Close", (*) => gui.Destroy())
+    serverBtn.OnEvent("Click", (*) => (result := "server", profileGui.Destroy()))
+    hybridBtn.OnEvent("Click", (*) => (result := "hybrid", profileGui.Destroy()))
+    profileGui.OnEvent("Close", (*) => profileGui.Destroy())
 
-    gui.Show("w360 h200")
-    while (IsObject(gui) && gui.Visible && result = "")
+    profileGui.Show("w360 h200")
+    while (IsObject(profileGui) && profileGui.Visible && result = "")
         Sleep 50
-    if (IsObject(gui)) {
-        try gui.Destroy()
+    if (IsObject(profileGui)) {
+        try profileGui.Destroy()
     }
     return result
 }
