@@ -56,4 +56,7 @@ LS_LaunchElevated(target, args := "") {
     }
 }
 
-TryLaunch()
+; Only run when script is executed (not during compilation)
+if (!A_IsCompiled || A_ScriptName = "LabStationPanel.exe") {
+    TryLaunch()
+}
