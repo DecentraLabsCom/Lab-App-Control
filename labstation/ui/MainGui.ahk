@@ -104,6 +104,7 @@ LS_BuildGui() {
     refreshBtn.Focus()
 
     myGui.OnEvent("Close", (*) => myGui.Destroy())
+    myGui.OnEvent("Size", LS_GuiSize_Handler)
     LS_GuiRefreshStatus(myGui)
     return myGui
 }
@@ -220,6 +221,38 @@ LS_GuiRunRelease() {
     success := LS_SessionManager.ReleaseSession(Map("reboot", true))
     icon := success ? "OK Iconi" : "OK Iconx"
     MsgBox (success ? "Release-session completed" : "Release-session finished with warnings"), "Lab Station", icon
+}
+
+LS_GuiSize_Handler(guiObj, minMax, w, h) {
+    if (minMax = -1) { ; minimized
+        guiObj.Hide()
+        LS_EnsureTrayMenu()
+    }
+}
+
+LS_EnsureTrayMenu() {
+    static trayReady := false
+    if (trayReady)
+        return
+    ; Set tray icon if available
+    logo := ""
+    possible := [
+        A_ScriptDir "\img\DecentraLabs.png",
+        A_ScriptDir "\DecentraLabs.png"
+    ]
+    for p in possible {
+        if (FileExist(p)) {
+            logo := p
+            break
+        }
+    }
+    if (logo != "")
+        TraySetIcon(logo)
+    A_TrayMenu.Delete()
+    A_TrayMenu.Add("Show Lab Station", (*) => (LS_StartMainGui(), LS_GUI.Show()))
+    A_TrayMenu.Add()
+    A_TrayMenu.Add("Exit", (*) => ExitApp)
+    trayReady := true
 }
 
 ; Event handlers
