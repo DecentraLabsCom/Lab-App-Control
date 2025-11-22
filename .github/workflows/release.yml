@@ -307,7 +307,12 @@ jobs:
           Write-Host "Script: $scriptPath"
           Write-Host "Output: $outFile"
 
-          $arguments = @('/in', $scriptPath, '/out', $outFile, '/bin', $binPath, '/icon', $iconPath, '/silent', '1')
+          # Verify script can be parsed by AutoHotkey
+          Write-Host "Testing script syntax..."
+          $testOutput = & $base '/ErrorStdOut' $scriptPath 2>&1
+          Write-Host "Syntax check output: $testOutput"
+
+          $arguments = @('/in', $scriptPath, '/out', $outFile, '/bin', $binPath, '/icon', $iconPath, '/silent', '0')
           Write-Host "Running: $compiler $($arguments -join ' ')"
           $output = & $compiler @arguments 2>&1
           $exitCode = $LASTEXITCODE
