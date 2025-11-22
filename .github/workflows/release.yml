@@ -312,7 +312,7 @@ jobs:
 
             # Try running Ahk2Exe with full verbosity
           Write-Host "Attempting compilation with verbose output..."
-          $arguments = @('/in', $scriptPath, '/out', $outFile, '/bin', $binPath, '/icon', $iconPath, '/cp', '0')
+          $arguments = @('/in', $scriptPath, '/out', $outFile, '/bin', $binPath, '/icon', $iconPath, '/silent', '1', '/cp', '0')
           Write-Host "Running: $compiler $($arguments -join ' ')"
           
           # Run compiler and capture all output
