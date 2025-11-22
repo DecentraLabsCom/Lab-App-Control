@@ -312,13 +312,23 @@ jobs:
           $testOutput = & $base '/ErrorStdOut' $scriptPath 2>&1
           Write-Host "Syntax check output: $testOutput"
 
-          $arguments = @('/in', $scriptPath, '/out', $outFile, '/bin', $binPath, '/icon', $iconPath, '/silent', '0')
+          # Try running Ahk2Exe with full verbosity
+          Write-Host "Attempting compilation with verbose output..."
+          $arguments = @('/in', $scriptPath, '/out', $outFile, '/bin', $binPath, '/icon', $iconPath)
           Write-Host "Running: $compiler $($arguments -join ' ')"
-          $output = & $compiler @arguments 2>&1
-          $exitCode = $LASTEXITCODE
-
-          Write-Host "Compiler output:"
-          Write-Host $output
+          
+          # Run compiler and capture all output
+          $process = Start-Process -FilePath $compiler -ArgumentList $arguments -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP\ahk2exe_out.txt" -RedirectStandardError "$env:TEMP\ahk2exe_err.txt"
+          $exitCode = $process.ExitCode
+          
+          $stdOut = Get-Content "$env:TEMP\ahk2exe_out.txt" -Raw -ErrorAction SilentlyContinue
+          $stdErr = Get-Content "$env:TEMP\ahk2exe_err.txt" -Raw -ErrorAction SilentlyContinue
+          
+          Write-Host "Compiler stdout:"
+          Write-Host $stdOut
+          Write-Host "Compiler stderr:"
+          Write-Host $stdErr
+          Write-Host "Exit code: $exitCode"
 
           if ($null -eq $exitCode) {
             $exitCode = 0
