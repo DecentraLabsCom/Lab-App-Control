@@ -58,7 +58,11 @@ LS_LaunchElevated(target, args := "") {
     }
 }
 
-; Auto-execute section (skip when building)
-if (EnvGet("LABSTATION_PANEL_BUILD") != "1") {
-    TryLaunch()
+; Auto-execute section:
+; - Skip entirely when running as plain script (compilation phases)
+; - Skip when the build pipeline sets LABSTATION_PANEL_BUILD=1
+if (A_IsCompiled) {
+    if (EnvGet("LABSTATION_PANEL_BUILD") != "1") {
+        TryLaunch()
+    }
 }
