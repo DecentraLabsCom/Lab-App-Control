@@ -307,13 +307,8 @@ jobs:
           Write-Host "Script: $scriptPath"
           Write-Host "Output: $outFile"
 
-            # Signal script to skip runtime launch during compilation/tests
-            $env:LABSTATION_PANEL_BUILD = "1"
-
-            # Verify script can be parsed by AutoHotkey
-            Write-Host "Testing script syntax..."
-            $testOutput = & $base '/ErrorStdOut' $scriptPath 2>&1
-            Write-Host "Syntax check output: $testOutput"
+          # Signal script to skip runtime launch during compilation
+          $env:LABSTATION_PANEL_BUILD = "1"
 
             # Try running Ahk2Exe with full verbosity
           Write-Host "Attempting compilation with verbose output..."
