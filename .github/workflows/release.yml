@@ -307,12 +307,10 @@ jobs:
           Write-Host "Script: $scriptPath"
           Write-Host "Output: $outFile"
 
-          Push-Location $compilerDir
           $arguments = @('/in', $scriptPath, '/out', $outFile, '/bin', $binPath, '/icon', $iconPath, '/silent', '1')
           Write-Host "Running: $compiler $($arguments -join ' ')"
           $output = & $compiler @arguments 2>&1
           $exitCode = $LASTEXITCODE
-          Pop-Location
 
           Write-Host "Compiler output:"
           Write-Host $output
