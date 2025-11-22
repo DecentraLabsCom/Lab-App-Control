@@ -3,7 +3,6 @@
 ; ============================================================================
 #Requires AutoHotkey v2.0
 #SingleInstance Force
-#Warn Unreachable, Off  ; Disable warning for intentional unreachable code in compiled version
 
 ;@Ahk2Exe-SetMainIcon img\favicon.ico
 
@@ -59,11 +58,5 @@ LS_LaunchElevated(target, args := "") {
     }
 }
 
-;@Ahk2Exe-IgnoreBegin
-; This code only exists in the .ahk script, not in compiled .exe
-TryLaunch()
-return  ; End of auto-execute section for .ahk
-;@Ahk2Exe-IgnoreEnd
-
-; This code only exists in the compiled .exe
+; Auto-execute section
 TryLaunch()
