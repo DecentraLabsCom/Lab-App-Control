@@ -49,27 +49,24 @@ LS_WizardSelectMode() {
 
     profileGui.SetFont("s10 cFFFFFF")
     serverBtn := profileGui.AddButton("x20 y90 w300 h36", "Dedicated Lab Server")
-    serverBtn.ToolTip := "Full lockdown: LABUSER autologon + restricted mode"
-    hybridBtn := profileGui.AddButton("x20 y135 w300 h36", "Hybrid Lab Station")
-    hybridBtn.ToolTip := "LABUSER without autologon, shared with local users")
+    profileGui.SetFont("s8 cC08A2B")
+    profileGui.AddText("x20 y130 w300", "Full lockdown: LABUSER autologon + restricted mode")
+    
+    profileGui.SetFont("s10 cFFFFFF")
+    hybridBtn := profileGui.AddButton("x20 y160 w300 h36", "Hybrid Lab Station")
+    profileGui.SetFont("s8 cC08A2B")
+    profileGui.AddText("x20 y200 w300", "LABUSER without autologon, shared with local users")
 
     result := ""
     serverBtn.OnEvent("Click", (*) => (result := "server", profileGui.Destroy()))
     hybridBtn.OnEvent("Click", (*) => (result := "hybrid", profileGui.Destroy()))
-    profileGui.OnEvent("Close", (*) => profileGui.Destroy())
+    profileGui.OnEvent("Close", (*) => (result := "cancel", profileGui.Destroy()))
 
-    profileGui.Show("w340 h200")
-    while (IsObject(profileGui) && result = "") {
+    profileGui.Show("w340 h230")
+    while (result = "") {
         Sleep 50
-        try {
-            if (!profileGui.Visible)
-                break
-        }
     }
-    if (IsObject(profileGui)) {
-        try profileGui.Destroy()
-    }
-    return result
+    return result = "cancel" ? "" : result
 }
 
 LS_WizardServerSteps() {
