@@ -58,5 +58,7 @@ LS_LaunchElevated(target, args := "") {
     }
 }
 
-; Auto-execute section
-TryLaunch()
+; Auto-execute section (skip when building)
+if (EnvGet("LABSTATION_PANEL_BUILD") != "1") {
+    TryLaunch()
+}
