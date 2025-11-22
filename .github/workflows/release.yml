@@ -280,6 +280,7 @@ jobs:
           Write-Host "Size: $($fileInfo.Length) bytes"
 
       - name: Compile LabStation Panel
+        if: false
         shell: powershell
         run: |
           $compiler = "${{ steps.setup-tools.outputs.compiler }}"
