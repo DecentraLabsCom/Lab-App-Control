@@ -59,7 +59,7 @@ LS_WizardSelectMode() {
     profileGui.OnEvent("Close", (*) => profileGui.Destroy())
 
     profileGui.Show("w360 h200")
-    while (IsObject(profileGui) && profileGui.Visible && result = "")
+    while (IsObject(profileGui) && !profileGui.Destroyed && result = "")
         Sleep 50
     if (IsObject(profileGui)) {
         try profileGui.Destroy()
