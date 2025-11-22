@@ -49,7 +49,10 @@ jobs:
         id: setup-tools
         shell: powershell
         run: |
-          $headers = @{ 'User-Agent' = 'Lab-App-Control-Release' }
+          $headers = @{
+            'User-Agent' = 'Lab-App-Control-Release'
+            'Authorization' = "Bearer $Env:GITHUB_TOKEN"
+          }
           
           # Download AutoHotkey v2 portable
           $ahkRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest' -Headers $headers
