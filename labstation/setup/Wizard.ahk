@@ -42,23 +42,23 @@ LS_WizardSelectMode() {
     profileGui.BackColor := "0F1419"
     profileGui.SetFont("s10", "Segoe UI")
 
-    profileGui.SetFont("s14 Bold cFFFFFF", "Bahnschrift")
+    profileGui.SetFont("s14 Bold cFFFFFF", "Segoe UI Variable Display")
     profileGui.AddText("x20 y14", "⚙️ Select station profile")
     profileGui.SetFont("s9 c9CA3AF")
-    profileGui.AddText("x20 yp+24 w400", "Non-destructive: close this window to cancel. Choose the mode that matches the host.")
+    profileGui.AddText("x20 yp+30", "Choose the operating mode for this lab station.")
 
     profileGui.SetFont("s10 cFFFFFF")
-    serverBtn := profileGui.AddButton("x20 y78 w300 h36", "Dedicated Lab Server")
-    hybridBtn := profileGui.AddButton("x20 y122 w300 h36", "Hybrid Lab Station")
-    profileGui.SetFont("s8 cC08A2B")
-    profileGui.AddText("x20 y166 w360", "Dedicated: LABUSER autologon + lockdown. Hybrid: coexists with local use.")
+    serverBtn := profileGui.AddButton("x20 y90 w300 h36", "Dedicated Lab Server")
+    serverBtn.ToolTip := "Full lockdown: LABUSER autologon + restricted mode"
+    hybridBtn := profileGui.AddButton("x20 y135 w300 h36", "Hybrid Lab Station")
+    hybridBtn.ToolTip := "LABUSER without autologon, shared with local users")
 
     result := ""
     serverBtn.OnEvent("Click", (*) => (result := "server", profileGui.Destroy()))
     hybridBtn.OnEvent("Click", (*) => (result := "hybrid", profileGui.Destroy()))
     profileGui.OnEvent("Close", (*) => profileGui.Destroy())
 
-    profileGui.Show("w360 h200")
+    profileGui.Show("w340 h200")
     while (IsObject(profileGui) && result = "") {
         Sleep 50
         try {
