@@ -3,28 +3,9 @@
 ; ============================================================================
 #Requires AutoHotkey v2.0
 #SingleInstance Force
+#Warn Unreachable, Off  ; Disable warning for intentional unreachable code in compiled version
 
-; Prevent execution during compilation
 ;@Ahk2Exe-SetMainIcon img\favicon.ico
-if (A_LineFile = A_ScriptFullPath && !A_IsCompiled) {
-    ; Running as .ahk script - execute immediately
-    Main()
-    ExitApp
-}
-
-; Auto-execute for compiled .exe
-if (A_IsCompiled) {
-    Main()
-    ExitApp
-}
-
-; Compilation mode - do nothing, just parse
-ExitApp
-
-Main() {
-    TryExtractLogo()
-    TryLaunch()
-}
 
 ; Embed logo for compiled builds so the GUI can find it.
 TryExtractLogo() {
@@ -77,3 +58,12 @@ LS_LaunchElevated(target, args := "") {
         MsgBox "Unable to launch Lab Station with elevation: " . e.Message, "Lab Station Panel", "OK Iconx"
     }
 }
+
+;@Ahk2Exe-IgnoreBegin
+; This code only exists in the .ahk script, not in compiled .exe
+TryLaunch()
+return  ; End of auto-execute section for .ahk
+;@Ahk2Exe-IgnoreEnd
+
+; This code only exists in the compiled .exe
+TryLaunch()
