@@ -282,7 +282,6 @@ jobs:
           Write-Host "Size: $($fileInfo.Length) bytes"
 
       - name: Compile LabStation Panel
-        if: false
         shell: powershell
         run: |
           $compiler = "${{ steps.setup-tools.outputs.compiler }}"
@@ -309,31 +308,23 @@ jobs:
           Write-Host "Icon: $iconPath"
           Write-Host "Script: $scriptPath"
           Write-Host "Output: $outFile"
-
-          # Signal script to skip runtime launch during compilation
-          $env:LABSTATION_PANEL_BUILD = "1"
-
-            # Try running Ahk2Exe with full verbosity
-          Write-Host "Attempting compilation with verbose output..."
-            $arguments = @('/in', $scriptPath, '/out', $outFile, '/bin', $binPath, '/icon', $iconPath, '/silent', '1', '/cp', '0')
-            Write-Host "Running: $compiler $($arguments -join ' ')"
-            
-            # Run compiler and capture all output with timeout
-            $process = Start-Process -FilePath $compiler -ArgumentList $arguments -NoNewWindow -PassThru -RedirectStandardOutput "$env:TEMP\ahk2exe_out.txt" -RedirectStandardError "$env:TEMP\ahk2exe_err.txt"
-            if (-not (Wait-Process -Id $process.Id -Timeout 60 -ErrorAction SilentlyContinue)) {
-              Write-Host "Ahk2Exe did not finish in 60s. Killing process..."
-              Stop-Process -Id $process.Id -Force
-              throw "Ahk2Exe timed out compiling LabStationPanel"
-            }
-            $exitCode = $process.ExitCode
           
-          $stdOut = Get-Content "$env:TEMP\ahk2exe_out.txt" -Raw -ErrorAction SilentlyContinue
-          $stdErr = Get-Content "$env:TEMP\ahk2exe_err.txt" -Raw -ErrorAction SilentlyContinue
+          # Verify script exists and is readable
+          if (-not (Test-Path $scriptPath)) {
+            throw "Script not found: $scriptPath"
+          }
+          Write-Host "Script verified, size: $((Get-Item $scriptPath).Length) bytes"
           
-          Write-Host "Compiler stdout:"
-          Write-Host $stdOut
-          Write-Host "Compiler stderr:"
-          Write-Host $stdErr
+          # Use absolute paths for compilation
+          $arguments = @('/in', $scriptPath, '/out', $outFile, '/bin', $binPath, '/icon', $iconPath)
+          Write-Host "Running: $compiler $($arguments -join ' ')"
+          
+          # Simple invocation without stream redirection to avoid hanging
+          $output = & $compiler @arguments 2>&1 | Out-String
+          $exitCode = $LASTEXITCODE
+          
+          Write-Host "Compiler output:"
+          Write-Host $output
           Write-Host "Exit code: $exitCode"
 
           if ($null -eq $exitCode) {

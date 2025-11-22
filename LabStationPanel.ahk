@@ -59,10 +59,10 @@ LS_LaunchElevated(target, args := "") {
 }
 
 ; Auto-execute section:
-; - Skip entirely when running as plain script (compilation phases)
-; - Skip when the build pipeline sets LABSTATION_PANEL_BUILD=1
-if (A_IsCompiled) {
-    if (EnvGet("LABSTATION_PANEL_BUILD") != "1") {
-        TryLaunch()
-    }
-}
+; This section is ignored during compilation by Ahk2Exe and only runs in the compiled executable
+;@Ahk2Exe-IgnoreBegin
+ExitApp  ; Prevent execution when running as script (during development or compilation)
+;@Ahk2Exe-IgnoreEnd
+/*@Ahk2Exe-Keep
+TryLaunch()
+*/
