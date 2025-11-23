@@ -10,13 +10,25 @@ This document explains how Lab Gateway should ingest the telemetry Lab Station p
 | `labstation/data/status.json` | On demand (`status-json`) | Same schema as the `status` field inside the heartbeat. | Export on demand when WinRM is already active. |
 | `labstation/data/telemetry/session-guard-events.jsonl` | Only when evictions occur | JSON Lines (one line per eviction) with `timestamp`, `user`, `sessionId`, `grace`, `force`, `message`, `source`. | Historical audit trail and booking traceability. |
 | `labstation/data/service-state.ini` | After each relevant operation | Latest results from `prepare-session`, `release-session`, `safeguard-reboot`, and `forced-logoff`. | Backup for the `operations` block; useful if the heartbeat is lost. |
+| `reservation_operations` (MySQL) | On every `/ops/api/reservations/start|end` execution | Persists WoL/prepare/release/power outcomes per reservation (status, duration, stdout/stderr). | Feed reservation timelines and SLA tracking dashboards. |
 
 ## 2. Ingestion strategy
 
-1. **Expose the `labstation/data` folder via read-only SMB/WinShare** or reuse the existing WinRM channel to copy files (`Copy-Item -FromSession`).
-2. **Schedule a poller every 30-60 seconds** per host that downloads `heartbeat.json`. The file is <10 KB and replacing it is atomic, so simply overwrite the local copy.
-3. **Parse the JSON** and store only the needed fields (e.g., insert a gateway database record whenever `timestamp` changes).
-4. **Attach the last line from `session-guard-events.jsonl`** to the reservation details whenever an eviction is detected (`operations.lastForcedLogoff.timestamp`).
+**Lab Gateway implementation (ops-worker)**
+
+Lab Gateway ahora incluye `ops-worker` (Python/Flask) que automatiza la ingesta:
+
+1. **Polling automático**: Configurar `OPS_POLL_ENABLED=true` y `OPS_POLL_INTERVAL=60` (segundos) en `docker-compose.yml`.
+2. **Endpoints disponibles**:
+   - `POST /api/heartbeat/poll` - Lee `heartbeat.json` vía WinRM, persiste en MySQL
+   - `POST /api/wol` - Envía magic packet + valida ping con reintentos
+   - `POST /api/winrm` - Proxy para ejecutar comandos `LabStation.exe`
+3. **MySQL persistence**: Schema `005-labstation-ops.sql` con `lab_hosts`, `lab_host_heartbeat`, `lab_host_events`.
+4. **Lab Manager UI**: Panel visual en `/lab-manager` para monitoreo y acciones rápidas.
+
+**Manual polling (alternativa)**
+
+Si prefieres lógica custom sin ops-worker:
 
 ### Quick PowerShell example
 

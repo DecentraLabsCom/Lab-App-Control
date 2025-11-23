@@ -4,6 +4,7 @@
 - Establish a minimal, script-friendly surface so Lab Gateway can orchestrate Lab Station hosts without deploying another agent.
 - Cover the commands required for a single reservation lifecycle: `session guard`, `prepare-session`, `release-session`, `status-json`, and the safeguard `recovery reboot-if-needed` fallback when the host refuses to clean up.
 - Document connectivity profile, credentials, command arguments, exit codes, and example payloads so both teams can automate confidently.
+- **ops-worker implementation**: Lab Gateway includes `ops-worker` (Python/Flask) that wraps these WinRM commands as REST APIs (`/api/wol`, `/api/winrm`, `/api/heartbeat/poll`).
 
 ## 2. Connectivity profile
 | Item | Value |
@@ -132,4 +133,5 @@ print(status['summary']['state'])
 ## 7. Open items / future enhancements
 - Add HTTPS listener + certificate pinning guidelines.
 - Surface `status-json --stdout` to skip temporary files during remote runs.
-- Extend `prepare-session` to upload a result manifest directly to the backend once service polling is implemented.
+- Extend notification system for automated alerts on `ready=false` or stale heartbeat.
+- **Completed**: ops-worker REST API simplifies integration vs raw WinRM (see `ops-worker/README.md`).

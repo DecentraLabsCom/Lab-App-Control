@@ -2,6 +2,8 @@
 
 The Gateway frontend must make it clear which mode each host operates in and what actions the instructor/operator needs to take. This guide summarizes the essential components based on the signals Lab Station publishes.
 
+**Implementation status**: Lab Manager UI (`web/lab-manager/`) implements these guidelines with real-time host management.
+
 ## 1. Visible states on each host card
 
 | UI Field | Source | Behavior |
@@ -36,11 +38,15 @@ The Gateway frontend must make it clear which mode each host operates in and wha
 
 ## 5. Recommended quick actions
 
-- `Prepare session` → sends `prepare-session` with default arguments (includes `session guard`).
-- `Release session` → `release-session --reboot` (optional).
-- `Force immediate eviction` → `session guard --guard-grace=30 --guard-silent` (support only).
-- `Mark local usage` → creates `local-mode.flag` and records it in the Gateway logbook.
-- `Shutdown after reservation` → `power shutdown --delay=60 --reason="Reservation completed"` (or `power hibernate`) for hosts that should end in S5/S4 but remain WoL-ready.
+Lab Manager implements these as direct buttons in the host card:
+
+- `Prepare session` → `POST /ops/api/winrm` with command `prepare-session` (includes `session guard`).
+- `Release session` → `POST /ops/api/winrm` with command `release-session --reboot`.
+- `Force immediate eviction` → command `session guard --guard-grace=30 --guard-silent` (support only).
+- `Mark local usage` → Creates `local-mode.flag` (stored in browser localStorage, toggles reservation blocking).
+- `Shutdown after reservation` → command `power shutdown --delay=60 --reason="Reservation completed"`.
+- `Wake` → `POST /ops/api/wol` with retry validation.
+- `Heartbeat` → `POST /ops/api/heartbeat/poll` to refresh status instantly.
 
 ## 6. Text snippets for the UI
 
