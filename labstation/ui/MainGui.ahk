@@ -6,6 +6,7 @@
 #Include ..\core\Logger.ahk
 #Include ..\core\Admin.ahk
 #Include ..\diagnostics\Status.ahk
+#Include ..\service\Telemetry.ahk
 #Include ..\service\SessionManager.ahk
 #Include ..\service\SessionGuard.ahk
 
@@ -197,6 +198,7 @@ LS_GuiRunSetup() {
     ; Refresh status after setup
     if (IsSet(LS_GUI) && LS_GUI)
         LS_GuiRefreshStatus(LS_GUI)
+    LS_GuiPublishStatus()
 }
 
 LS_GuiRunGuard() {
@@ -205,6 +207,9 @@ LS_GuiRunGuard() {
     success := LS_SessionGuard.Run(Map("grace", 90))
     icon := success ? "OK Iconi" : "OK Iconx"
     MsgBox (success ? "Session guard finished" : "Session guard reported warnings"), "Lab Station", icon
+    LS_GuiPublishStatus()
+    if (IsSet(LS_GUI) && LS_GUI)
+        LS_GuiRefreshStatus(LS_GUI)
 }
 
 LS_GuiRunPrepare() {
@@ -213,6 +218,9 @@ LS_GuiRunPrepare() {
     success := LS_SessionManager.PrepareSession()
     icon := success ? "OK Iconi" : "OK Iconx"
     MsgBox (success ? "Prepare-session completed" : "Prepare-session finished with warnings"), "Lab Station", icon
+    LS_GuiPublishStatus()
+    if (IsSet(LS_GUI) && LS_GUI)
+        LS_GuiRefreshStatus(LS_GUI)
 }
 
 LS_GuiRunRelease() {
@@ -221,12 +229,25 @@ LS_GuiRunRelease() {
     success := LS_SessionManager.ReleaseSession(Map("reboot", true))
     icon := success ? "OK Iconi" : "OK Iconx"
     MsgBox (success ? "Release-session completed" : "Release-session finished with warnings"), "Lab Station", icon
+    LS_GuiPublishStatus()
+    if (IsSet(LS_GUI) && LS_GUI)
+        LS_GuiRefreshStatus(LS_GUI)
 }
 
 LS_GuiSize_Handler(guiObj, minMax, w, h) {
     if (minMax = -1) { ; minimized
         guiObj.Hide()
         LS_EnsureTrayMenu()
+    }
+}
+
+LS_GuiPublishStatus(status := "") {
+    try {
+        status := IsObject(status) ? status : LS_Status.Collect()
+        LS_Status.ExportJson(LAB_STATION_STATUS_FILE, status)
+        LS_Telemetry.Publish(status)
+    } catch as e {
+        LS_LogWarning("Unable to refresh telemetry from GUI: " . e.Message)
     }
 }
 
