@@ -9,6 +9,7 @@
 #Include ..\service\Telemetry.ahk
 #Include ..\service\SessionManager.ahk
 #Include ..\service\SessionGuard.ahk
+#Include ..\system\ServiceManager.ahk
 
 ; Entry point for LabStation.exe gui
 LS_StartMainGui() {
@@ -29,6 +30,9 @@ LS_BuildGui() {
     myGui.StatusBox := ""
     myGui.SetupButton := ""
     myGui.SetupChip := ""
+    myGui.LocalModeButton := ""
+    myGui.ServiceStatusText := ""
+    myGui.ServiceRestartButton := ""
 
     ; Header
     myGui.SetFont("s17 Bold cFFFFFF", "Bahnschrift")
@@ -71,7 +75,7 @@ LS_BuildGui() {
 
     ; Separator
     myGui.SetFont("s1 c374151")
-    myGui.AddText("x470 y16 w2 h330", "│")
+    myGui.AddText("x470 y16 w2 h370", "│")
 
     ; Actions
     myGui.SetFont("s11 Bold cFFFFFF")
@@ -88,16 +92,21 @@ LS_BuildGui() {
     myGui.SetupButton.OnEvent("Click", LS_GuiRunSetup_Handler)
 
     myGui.SetFont("s9 Bold c9CA3AF")
-    myGui.AddText("x490 y180", "Setup Management")
+    myGui.AddText("x490 y180", "Local mode (on-site)")
 
-    guardBtn := myGui.AddButton("x490 y200 w220 h34", "🛡️ Start Session Guard")
-    guardBtn.OnEvent("Click", LS_GuiRunGuard_Handler)
+    myGui.SetFont("s9 cFFFFFF")
+    myGui.LocalModeButton := myGui.AddButton("x490 y200 w220 h34", "🔒 Enable local mode")
+    myGui.LocalModeButton.OnEvent("Click", LS_GuiToggleLocalMode_Handler)
 
-    prepBtn := myGui.AddButton("x490 y240 w220 h34", "🔧 Prepare Session")
-    prepBtn.OnEvent("Click", LS_GuiRunPrepare_Handler)
+    myGui.SetFont("s9 cE5E7EB")
+    myGui.ServiceStatusText := myGui.AddText("x490 y240 w220", "(checking)")
 
-    relBtn := myGui.AddButton("x490 y280 w220 h34", "🔄 Release + Reboot")
-    relBtn.OnEvent("Click", LS_GuiRunRelease_Handler)
+    myGui.SetFont("s9 cFFFFFF")
+    myGui.ServiceRestartButton := myGui.AddButton("x490 y260 w220 h34", "⟳ Restart service")
+    myGui.ServiceRestartButton.OnEvent("Click", LS_GuiRestartService_Handler)
+
+    myGui.SetFont("s9 Bold c9CA3AF")
+    myGui.AddText("x490 y305 w220 Center", "Background service")
 
     ; Footer
     myGui.SetFont("s8 c6B7280")
@@ -148,6 +157,9 @@ LS_GuiRefreshStatus(gui) {
     localMode := status.Has("localModeEnabled") ? status["localModeEnabled"] : false
     localIcon := localMode ? "🔒" : "🌐"
     summary.Push(localIcon . "  Local mode: " . (localMode ? "Enabled" : "Disabled"))
+    if (gui.HasProp("LocalModeButton") && gui.LocalModeButton) {
+        gui.LocalModeButton.Text := localMode ? "🌐 Disable local mode" : "🔒 Enable local mode"
+    }
     summary.Push("")
     hasUsers := status.Has("sessions") && status["sessions"].Has("hasOtherUsers") && status["sessions"]["hasOtherUsers"]
     userIcon := hasUsers ? "👤" : "○"
@@ -164,6 +176,8 @@ LS_GuiRefreshStatus(gui) {
     summary.Push("")
     summary.Push("Last refresh: " . FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss"))
     gui.StatusBox.Value := LS_StrJoin(summary, "`r`n")
+    if (gui.HasProp("ServiceStatusText") && gui.ServiceStatusText)
+        LS_GuiRefreshServiceState(gui)
 }
 
 LS_GuiExportStatus(gui) {
@@ -251,6 +265,82 @@ LS_GuiPublishStatus(status := "") {
     }
 }
 
+LS_GuiGetServiceStatus() {
+    result := Map("running", false, "label", "Unknown", "unknown", true)
+    capture := LS_ServiceManager.StatusText()
+    label := Trim(capture)
+    if (RegExMatch(capture, "Status:\\s*([^\\r\\n]+)", &m)) {
+        label := Trim(m[1])
+    }
+    lower := StrLower(label)
+    running := InStr(lower, "running") > 0
+    result["running"] := running
+    result["label"] := label != "" ? label : "Unknown"
+    result["unknown"] := (label = "")
+    return result
+}
+
+LS_GuiRefreshServiceState(gui) {
+    status := LS_GuiGetServiceStatus()
+    color := status["running"] ? "22C55E" : "F97316"
+    if (status["unknown"])
+        color := "D1D5DB"
+    gui.ServiceStatusText.Text := "Status: " . status["label"]
+    gui.ServiceStatusText.Opt("c" . color)
+    if (gui.HasProp("ServiceRestartButton") && gui.ServiceRestartButton)
+        gui.ServiceRestartButton.Enabled := !status["unknown"]
+}
+
+LS_GuiRestartService(gui) {
+    if (!LS_GuiEnsureAdmin())
+        return
+    try {
+        LS_ServiceManager.Stop()
+        Sleep 500
+        ok := LS_ServiceManager.Start()
+        MsgBox (ok ? "Service restarted." : "Service restart reported an issue (check log)."), "Lab Station", ok ? "OK Iconi" : "OK Iconx"
+    } catch as e {
+        MsgBox "Unable to restart service: " . e.Message, "Lab Station", "OK Iconx"
+    }
+    if (IsSet(gui) && gui)
+        LS_GuiRefreshServiceState(gui)
+}
+
+LS_GuiToggleTray(gui) {
+    try {
+        A_IconHidden := !A_IconHidden
+        if (!A_IconHidden)
+            LS_EnsureTrayMenu()
+    } catch as e {
+        MsgBox "Unable to toggle tray icon: " . e.Message, "Lab Station", "OK Iconx"
+        return
+    }
+}
+
+LS_GuiToggleLocalMode(gui) {
+    flag := LAB_STATION_LOCAL_MODE_FLAG
+    message := ""
+    try {
+        EnsureDir(LAB_STATION_DATA_DIR)
+        if (FileExist(flag)) {
+            FileDelete(flag)
+            message := "Local mode disabled. Remote reservations can proceed."
+        } else {
+            file := FileOpen(flag, "w", "UTF-8")
+            file.Write("local-mode")
+            file.Close()
+            message := "Local mode enabled. Remote reservations should be paused."
+        }
+    } catch as e {
+        MsgBox "Unable to toggle local mode: " . e.Message, "Lab Station", "OK Iconx"
+        return
+    }
+    MsgBox message, "Lab Station", "OK Iconi"
+    LS_GuiPublishStatus()
+    if (IsSet(gui) && gui)
+        LS_GuiRefreshStatus(gui)
+}
+
 LS_EnsureTrayMenu() {
     static trayReady := false
     if (trayReady)
@@ -303,4 +393,12 @@ LS_GuiRunPrepare_Handler(ctrl, info) {
 
 LS_GuiRunRelease_Handler(ctrl, info) {
     LS_GuiRunRelease()
+}
+
+LS_GuiRestartService_Handler(ctrl, info) {
+    LS_GuiRestartService(ctrl.Gui)
+}
+
+LS_GuiToggleLocalMode_Handler(ctrl, info) {
+    LS_GuiToggleLocalMode(ctrl.Gui)
 }
