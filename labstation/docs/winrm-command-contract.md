@@ -31,6 +31,8 @@ All remote executions call the bundled binary: `C:\LabStation\LabStation.exe <co
 | `1` | Completed with warnings (handled condition, e.g., profile folder missing). | Inspect `labstation.log`, decide if retry is needed. |
 | `>=2` | Hard failure (command not run, privileges missing, PowerShell error). | Alert + manual investigation. |
 
+**Telemetry contract:** `status-json` and the `heartbeat.json` produced by the service include `schemaVersion` (current: **1.0.0**). Treat major bumps as breaking; fail fast or warn if `schemaVersion` is higher than the backend understands.
+
 ### Command surface
 | Command | Arguments | What it does | Artifacts |
 | --- | --- | --- | --- |
@@ -131,7 +133,7 @@ print(status['summary']['state'])
 6. **`status-json`** every 5 minutes (or on demand) to copy health data back to the gateway for dashboards; alternatively poll `C:\LabStation\data\telemetry\heartbeat.json` if SMB access is already available.
 
 ## 7. Open items / future enhancements
-- Add HTTPS listener + certificate pinning guidelines.
-- Surface `status-json --stdout` to skip temporary files during remote runs.
-- Extend notification system for automated alerts on `ready=false` or stale heartbeat.
+- **HTTPS listener + cert pinning:** still pending; during pilot stay on HTTP with TrustedHosts constrained to managed hosts and keep firewall scopes tight. Plan: document `New-SelfSignedCertificate` + listener binding once CA strategy is chosen.
+- **`status-json --stdout`:** not yet implemented. Current workaround: write to a temp path via `status-json <path>` and fetch the file in the same WinRM session.
+- **Proactive alerts:** notifications on `ready=false` or stale heartbeat remain roadmap items; rely on ops-worker polling + dashboards until built-in alerts land.
 - **Completed**: ops-worker REST API simplifies integration vs raw WinRM (see `ops-worker/README.md`).

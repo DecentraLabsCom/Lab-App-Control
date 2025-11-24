@@ -12,6 +12,89 @@ This document explains how Lab Gateway should ingest the telemetry Lab Station p
 | `labstation/data/service-state.ini` | After each relevant operation | Latest results from `prepare-session`, `release-session`, `safeguard-reboot`, and `forced-logoff`. | Backup for the `operations` block; useful if the heartbeat is lost. |
 | `reservation_operations` (MySQL) | On every `/ops/api/reservations/start|end` execution | Persists WoL/prepare/release/power outcomes per reservation (status, duration, stdout/stderr). | Feed reservation timelines and SLA tracking dashboards. |
 
+## 1.1 Schema version and baseline JSON Schema
+
+- Both `heartbeat.json` and `status.json` now carry `schemaVersion` (starting at **1.0.0**) so the gateway can reject or warn on incompatible payloads. Treat major bumps (`2.x`) as breaking; minor/patch (`1.x`) are additive.
+- The top-level `version` remains the Lab Station build; use `schemaVersion` for parsing.
+- Minimal JSON Schema (draft-07) for `status.json` / `heartbeat.status`:
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Lab Station status v1",
+  "type": "object",
+  "required": ["schemaVersion", "timestamp", "summary", "wake", "power", "policy", "sessions", "operations", "localSessionActive", "localModeEnabled"],
+  "properties": {
+    "schemaVersion": { "type": "string", "pattern": "^1\\.\\d+\\.\\d+$" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "identity": { "type": "object", "additionalProperties": true },
+    "remoteAppEnabled": { "type": "boolean" },
+    "autoStartConfigured": { "type": "boolean" },
+    "wake": {
+      "type": "object",
+      "required": ["armedCount", "programmableCount", "nicPower"],
+      "properties": {
+        "armedCount": { "type": "integer" },
+        "programmableCount": { "type": "integer" },
+        "nicNonCompliant": { "type": "array", "items": { "type": "object" } },
+        "nicPower": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "wakeOnMagicPacket": { "type": "string" },
+              "wakeOnPattern": { "type": "string" },
+              "allowTurnOff": { "type": "string" },
+              "wolReady": { "type": "boolean" },
+              "complianceIssues": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "power": {
+      "type": "object",
+      "required": ["activePlan", "sleepCompliant", "hibernateCompliant"],
+      "additionalProperties": true
+    },
+    "policy": { "type": "object", "additionalProperties": true },
+    "sessions": { "type": "object", "additionalProperties": true },
+    "summary": {
+      "type": "object",
+      "required": ["state", "issues"],
+      "properties": {
+        "state": { "type": "string", "enum": ["ready", "needs-action"] },
+        "issues": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "operations": { "type": "object", "additionalProperties": true },
+    "localSessionActive": { "type": "boolean" },
+    "localModeEnabled": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}
+```
+
+- `heartbeat.json` wraps the same `status` document and adds top-level metadata:
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "timestamp": "2025-11-22T23:59:59Z",
+  "host": "LAB-WS-07",
+  "version": "1.0.0-alpha",
+  "remoteAppEnabled": true,
+  "autoStartConfigured": true,
+  "summary": { "state": "ready", "issues": [] },
+  "operations": { "lastPrepareSession": { "timestamp": "..." } },
+  "status": { "...": "same object as status.json" }
+}
+```
+
 ## 2. Ingestion strategy
 
 **Lab Gateway implementation (ops-worker)**

@@ -19,6 +19,7 @@ class LS_Telemetry {
         operations := status.Has("operations") ? status["operations"] : LS_ServiceState.GetOperationsSummary()
         payload := Map()
         payload["timestamp"] := FormatTime(A_NowUTC, "yyyy-MM-ddTHH:mm:ssZ")
+        payload["schemaVersion"] := LAB_STATION_SCHEMA_VERSION
         payload["host"] := A_ComputerName
         payload["version"] := LAB_STATION_VERSION
         payload["remoteAppEnabled"] := status["remoteAppEnabled"]

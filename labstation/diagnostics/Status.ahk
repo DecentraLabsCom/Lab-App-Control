@@ -14,6 +14,7 @@
 class LS_Status {
     static Collect() {
         data := Map()
+        data["schemaVersion"] := LAB_STATION_SCHEMA_VERSION
         data["timestamp"] := FormatTime(A_NowUTC, "yyyy-MM-ddTHH:mm:ssZ")
         data["identity"] := this.GetIdentityInformation()
         data["remoteAppEnabled"] := this.CheckRemoteAppPolicy()

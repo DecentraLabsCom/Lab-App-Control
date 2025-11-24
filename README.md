@@ -103,8 +103,22 @@ reboot-timeout=20
 - Supported `name` values today: `prepare-session`, `release-session`, `session-guard`, `status-json`, `reboot-if-needed`.
 - Optional keys: `user`, `reboot`, `reboot-timeout`, `path` (for `status-json`), guard-related switches (`guard=yes|no`, `guard-grace`, `guard-message`, `guard-notify`), plus `reason`, `force`, or `timeout` when scheduling `reboot-if-needed`.
 - Power commands: enqueue `name=power-shutdown` or `name=power-hibernate` with optional `delay`, `reason`, `force=yes|no`, `skip-wake-check=yes|no`, `repair-wake=yes|no`.
-- Results are written to `labstation/data/commands/results/<id>.json` together with the captured options and timestamps.
-- Processed instructions are archived to `labstation/data/commands/processed/` so the backend can audit what happened.
+- Results are written to `labstation/data/commands/results/<id>.json` together with the captured options and timestamps. Exit codes mirror the CLI: `0` success, `1` completed with warnings (prepare/release/guard reported something non-fatal), `2` hard failure (missing command, exceptions, or non-compliant power checks).
+- Result payload shape:
+  ```json
+  {
+    "id": "job-20251121-01",
+    "command": "prepare-session",
+    "completedAt": "2025-11-22T23:05:12Z",
+    "success": true,
+    "exitCode": 0,
+    "message": "Prepare-session completed",
+    "options": {"user": "LABUSER", "reboot": true},
+    "metadata": {"name": "prepare-session", "user": "LABUSER", "reboot": "true"},
+    "sourceFile": "C:\\LabStation\\labstation\\data\\commands\\inbox\\job-20251121-01.ini"
+  }
+  ```
+- Processed instructions are archived to `labstation/data/commands/processed/` so the backend can audit what happened; results stay in `.../results/` for collection.
 
 This queue gives Lab Gateway two integration choices: fire `LabStation.exe ...` directly over WinRM for synchronous operations, or drop a command file (via SMB/WinRM copy) and let the service pick it up asynchronously.
 
@@ -120,6 +134,7 @@ The same service loop now emits `labstation/data/telemetry/heartbeat.json` every
 - `lastPowerAction`: records the last shutdown/hibernate order (mode, delay, wake readiness) so dashboards can prove who powered the host down.
 - `wake.nicPower`: per-adapter verdict showing `wakeOnMagicPacket`, `allowTurnOff`, and `wolReady` so NIC misconfigurations surface in dashboards.
 - `power.sleepCompliant` / `power.hibernateCompliant`: boolean flags derived from `powercfg /q` (`STANDBYIDLE`/`HIBERNATEIDLE`) to prove sleep/hibernate remain disabled.
+- `schemaVersion`: contract version for the JSON shape (`heartbeat.json` and `status.json` share the same schema version).
 
 This means Lab Gateway can build dashboards or alerting off a simple file drop without invoking WinRM.
 

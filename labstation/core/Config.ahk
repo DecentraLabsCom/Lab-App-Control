@@ -7,6 +7,11 @@ if (!IsSet(LAB_STATION_VERSION)) {
     global LAB_STATION_VERSION := "1.0.0-alpha"
 }
 
+if (!IsSet(LAB_STATION_SCHEMA_VERSION)) {
+    ; Version of the telemetry/status JSON contract (heartbeat/status.json).
+    global LAB_STATION_SCHEMA_VERSION := "1.0.0"
+}
+
 if (!IsSet(LAB_STATION_ROOT)) {
     ; LabStation scripts live inside the labstation/ folder. Project root is one level up.
     global LAB_STATION_ROOT := A_ScriptDir
