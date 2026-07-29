@@ -298,9 +298,13 @@ class FmuSession:
 _sessions: dict[str, FmuSession] = {}
 
 
+class CapacityExceededError(RuntimeError):
+    """Raised when the Station execution authority has no free slot."""
+
+
 def create_session(fmu_path: Path) -> FmuSession:
     if len(_sessions) >= config.MAX_CONCURRENT_SESSIONS:
-        raise RuntimeError(
+        raise CapacityExceededError(
             f"Max concurrent sessions ({config.MAX_CONCURRENT_SESSIONS}) reached"
         )
     session_id = f"sess_{uuid.uuid4().hex[:12]}"

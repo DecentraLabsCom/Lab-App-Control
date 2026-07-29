@@ -672,3 +672,19 @@ class TestRunSimulationContract:
             },
         )
         assert resp.status_code == 404
+
+    def test_health_exposes_effective_execution_capacity(self, client, headers):
+        resp = client.get("/internal/health", headers=headers)
+
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["maxConcurrentExecutions"] == payload["maxSessions"]
+        assert payload["availableCapacity"] == payload["maxConcurrentExecutions"] - payload["activeExecutions"]
+
+    def test_capacity_endpoint_exposes_effective_execution_capacity(self, client, headers):
+        resp = client.get("/internal/fmu/capacity", headers=headers)
+
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["capacity"] == payload["maxConcurrentExecutions"]
+        assert payload["available"] == payload["capacity"] - payload["active"]

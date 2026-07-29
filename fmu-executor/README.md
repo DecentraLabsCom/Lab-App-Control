@@ -24,7 +24,7 @@ environment and Gateway's `FMU_STATION_INTERNAL_TOKEN`.
 | `FMU_EXECUTOR_PORT` | `8091` | Bind port |
 | `FMU_ROOT` | `./fmu-data` | Directory with provisioned `.fmu` files |
 | `FMU_INTERNAL_TOKEN` | *(required)* | Shared secret for `X-Internal-Session-Token`; requests fail closed when it is absent |
-| `FMU_MAX_SESSIONS` | `4` | Max concurrent realtime sessions |
+| `FMU_MAX_SESSIONS` | `4` | Effective max concurrent FMU executions (one-shot, stream and realtime) |
 | `FMU_EXECUTOR_TEMP` | `<FMU_ROOT>/.tmp` | Temp dir for FMU extraction |
 | `FMU_LOG_LEVEL` | `INFO` | Log level |
 
@@ -51,6 +51,7 @@ All endpoints require `X-Internal-Session-Token` header (except `/internal/healt
 | GET | `/internal/health` | Health & diagnostics |
 | GET | `/internal/fmu/catalog` | FMU inventory; `X-FMU-Access-Key` header |
 | GET | `/internal/fmu/describe` | Model description; `X-FMU-Access-Key` header |
+| GET | `/internal/fmu/capacity` | Effective execution capacity; internal token required |
 | POST | `/internal/fmu/simulations/run` | One-shot simulation run; JSON body contains `accessKey` |
 | POST | `/internal/fmu/simulations/stream` | Streaming NDJSON simulation; JSON body contains `accessKey` |
 | WS | `/internal/fmu/sessions` | Realtime session (step, setInputs, getOutputs) |

@@ -62,13 +62,31 @@ async def _check_token(request: Request) -> None:
 @app.get("/internal/health")
 async def health():
     fmu_count = len(fmu_storage.list_fmus())
+    active = engine.active_session_count()
     return {
         "status": "UP",
         "fmuCount": fmu_count,
         "quarantinedCount": len(fmu_storage.list_quarantined()),
-        "activeSessions": engine.active_session_count(),
+        "activeSessions": active,
+        "activeExecutions": active,
         "maxSessions": config.MAX_CONCURRENT_SESSIONS,
+        "maxConcurrentExecutions": config.MAX_CONCURRENT_SESSIONS,
+        "availableCapacity": max(0, config.MAX_CONCURRENT_SESSIONS - active),
         "timestamp": time.time(),
+    }
+
+
+@app.get("/internal/fmu/capacity", dependencies=[Depends(_check_token)])
+async def capacity():
+    """Expose the Station execution authority to the provider backend."""
+    active = engine.active_session_count()
+    capacity = config.MAX_CONCURRENT_SESSIONS
+    return {
+        "capacity": capacity,
+        "active": active,
+        "available": max(0, capacity - active),
+        "activeExecutions": active,
+        "maxConcurrentExecutions": capacity,
     }
 
 
@@ -156,7 +174,10 @@ async def run_simulation(body: SimulationBody):
         raise HTTPException(404, "FMU_NOT_FOUND")
 
     fmu_path = fmu_storage.get_fmu_path(access_key)
-    session = engine.create_session(fmu_path)
+    try:
+        session = engine.create_session(fmu_path)
+    except engine.CapacityExceededError as exc:
+        raise HTTPException(429, "STATION_CAPACITY_EXHAUSTED") from exc
     try:
         session.load()
         start = body.options.get("startTime", 0.0)
@@ -191,7 +212,16 @@ async def stream_simulation(body: SimulationBody):
     fmu_path = fmu_storage.get_fmu_path(access_key)
 
     def _generate():
-        session = engine.create_session(fmu_path)
+        try:
+            session = engine.create_session(fmu_path)
+        except engine.CapacityExceededError:
+            yield json.dumps({
+                "type": "error",
+                "code": "STATION_CAPACITY_EXHAUSTED",
+                "message": "Station execution capacity is exhausted",
+                "retryable": True,
+            }) + "\n"
+            return
         try:
             session.load()
             start = body.options.get("startTime", 0.0)
@@ -330,7 +360,10 @@ def _handle_ws_message(
             raise HTTPException(404, "FMU_NOT_FOUND")
 
         fmu_path = fmu_storage.get_fmu_path(access_key)
-        new_session = engine.create_session(fmu_path)
+        try:
+            new_session = engine.create_session(fmu_path)
+        except engine.CapacityExceededError as exc:
+            raise HTTPException(429, "STATION_CAPACITY_EXHAUSTED") from exc
         new_session.load()
 
         claims = (gateway_ctx.get("claims") or {})
