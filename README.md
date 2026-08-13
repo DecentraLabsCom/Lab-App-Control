@@ -54,6 +54,39 @@ Lab Station is the default entrypoint and bundles AppControl. Use AppControl dir
 - **Controlled power-down**: `power shutdown|hibernate` re-checks NIC/WoL readiness (and can reapply settings) before scheduling the OS power action, recording the order in `service-state.ini` and telemetry for auditing.
 - **Logging & data dir**: All operations log to `labstation/labstation.log` and persist data to `labstation/data/`.
 
+### 🖼️ UI tour
+
+The screenshots below show the current v3.2.0 desktop UI. Status values are
+read from the local workstation, so host names, connector state, and warnings
+will vary between installations.
+
+The main panel combines the diagnostics summary with the administrative
+shortcuts used during station setup and daily operation:
+
+![Lab Station main control panel](docs/images/labstation-main-panel.png)
+
+*Lab Station Control Panel: system status, local mode, service state, and quick actions.*
+
+The **Connectors** panel exposes the local integration surfaces that Lab
+Gateway can use. Select a connector on the left to inspect its state and the
+corresponding Gateway configuration.
+
+![FMI/FMU connector panel](docs/images/labstation-connectors-fmi.png)
+
+*FMI/FMU connector: station endpoint, FMU directory, port, and shared-token configuration.*
+
+![Guacamole App connector panel](docs/images/labstation-connectors-guacamole.png)
+
+*Guacamole App connector: bundled AppControl path and RemoteApp readiness.*
+
+The **Run Setup Wizard** action starts with the station-profile selector. The
+dedicated-server profile enables the locked-down autologon flow; the hybrid
+profile keeps the station usable by local users as well.
+
+![Lab Station setup profile selector](docs/images/labstation-setup-profile.png)
+
+*Setup wizard profile selector: Dedicated Lab Server or Hybrid Lab Station.*
+
 ### 🕹️ AppControl highlights
 
 - **Single & dual modes**: Launch one app or embed two apps inside a tabbed container with custom tab titles.

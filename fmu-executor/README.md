@@ -16,6 +16,14 @@ station service; expose port 8091 only to the Lab Gateway network and configure
 the same non-empty `FMU_INTERNAL_TOKEN` in the Station process
 environment and Gateway's `FMU_STATION_INTERNAL_TOKEN`.
 
+The same integration is visible from the Lab Station **Connectors** panel,
+which reports the FMU endpoint, local model directory, port, token status, and
+the Gateway environment expected for station mode:
+
+![Lab Station FMI/FMU connector](../docs/images/labstation-connectors-fmi.png)
+
+*FMI/FMU connector view from the Lab Station desktop UI.*
+
 ## Configuration (env vars)
 
 | Variable | Default | Description |

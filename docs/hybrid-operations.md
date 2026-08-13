@@ -35,6 +35,16 @@ These parameters can be passed to `prepare-session` via CLI or queue (e.g., `gua
 - The backend can create `labstation/data/local-mode.flag` when an instructor declares exclusive in-person use. While this file exists, remote reservations should be blocked or require manual confirmation.
 - `status.json`/`telemetry/heartbeat.json` expose `localModeEnabled` so dashboards can reflect the state.
 
+The same state is visible in the Lab Station desktop panel. The **Local mode
+(on-site)** action toggles the flag, and the status report shows whether the
+station is currently reserved for local use. The screenshot is illustrative;
+the displayed host and health values are taken from the workstation used to
+capture it.
+
+![Lab Station local-mode status](images/labstation-main-panel.png)
+
+*The desktop panel exposes local-mode status alongside the station health summary.*
+
 ## 5. Best practices for instructors
 
 - Follow the schedule/calendar published by Lab Gateway.
