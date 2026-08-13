@@ -1,6 +1,17 @@
 # Changelog
 
-# Changelog
+## [3.2.0] - 2026-08-13
+
+### Added
+- FMU executor integration with the Lab Gateway operations contract, including fixed private routes and safer binary metadata handling.
+- Lab Station integration-contract coverage for gateway operations, telemetry, WinRM credentials, and FMU execution.
+
+### Changed
+- Telemetry now includes station MAC information and the FMU executor uses access credentials outside request URLs.
+- Documentation and PowerShell 5.1 guidance were refreshed for the current gateway/station workflow.
+
+### Fixed
+- Gateway-facing FMU and station operation payloads now serialize consistently with the current backend contract.
 
 ## [3.1.0] - 2026-06-19
 
