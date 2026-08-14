@@ -43,7 +43,7 @@ def validate_gateway_context(ctx: dict | None, access_key: str) -> None:
     exp = claims.get("exp")
     if exp is not None:
         try:
-            if float(exp) < time.time():
+            if float(exp) <= time.time():
                 raise HTTPException(status_code=403, detail="RESERVATION_NOT_ACTIVE")
         except (ValueError, TypeError) as exc:
             raise HTTPException(status_code=403, detail="RESERVATION_NOT_ACTIVE") from exc

@@ -262,6 +262,32 @@ async def ws_sessions(ws: WebSocket):
     await ws.accept()
     session: engine.FmuSession | None = None
     _emitter_task: asyncio.Task | None = None
+    _expiry_task: asyncio.Task | None = None
+
+    async def _expire_session_after_deadline(expiring_session: engine.FmuSession):
+        nonlocal session
+        try:
+            expires_at = expiring_session.expires_at
+            if expires_at is None:
+                return
+            expires_at = float(expires_at)
+            await asyncio.sleep(max(0.0, expires_at - time.time()))
+            if session is not expiring_session or expiring_session._terminated:
+                return
+            engine.remove_session(expiring_session.session_id)
+            session = None
+            await ws.send_text(json.dumps({
+                "type": "session.closed",
+                "sessionId": expiring_session.session_id,
+                "reason": "expired",
+            }))
+            await ws.close(code=4003, reason="SESSION_EXPIRED")
+        except asyncio.CancelledError:
+            return
+        except (TypeError, ValueError):
+            logger.warning("Ignoring invalid FMU session expiry session_id=%s", expiring_session.session_id)
+        except Exception:
+            logger.debug("Unable to close expired FMU session", exc_info=True)
 
     async def _output_emitter():
         """Background task that streams subscribed outputs to the WS client."""
@@ -291,10 +317,15 @@ async def ws_sessions(ws: WebSocket):
                 response = _handle_ws_message(msg_type, msg, gateway_ctx, session)
                 if msg_type == "session.create":
                     session = response.pop("_session", None)
+                    if session and session.expires_at is not None:
+                        _expiry_task = asyncio.create_task(_expire_session_after_deadline(session))
                     # Start emitter task on session creation
                     if _emitter_task is None:
                         _emitter_task = asyncio.create_task(_output_emitter())
                 elif msg_type == "session.terminate":
+                    if _expiry_task:
+                        _expiry_task.cancel()
+                        _expiry_task = None
                     if session:
                         engine.remove_session(session.session_id)
                     session = None
@@ -326,6 +357,12 @@ async def ws_sessions(ws: WebSocket):
     except WebSocketDisconnect:
         logger.debug("WebSocket client disconnected")
     finally:
+        if _expiry_task:
+            _expiry_task.cancel()
+            try:
+                await _expiry_task
+            except asyncio.CancelledError:
+                logger.debug("FMU expiry task cancelled during cleanup")
         if _emitter_task:
             _emitter_task.cancel()
             try:
@@ -360,20 +397,24 @@ def _handle_ws_message(
             raise HTTPException(404, "FMU_NOT_FOUND")
 
         fmu_path = fmu_storage.get_fmu_path(access_key)
+        claims = (gateway_ctx.get("claims") or {})
+        exp = claims.get("exp")
         try:
-            new_session = engine.create_session(fmu_path)
+            new_session = engine.create_session(
+                fmu_path,
+                access_key=access_key,
+                expires_at=exp,
+                gateway_context=gateway_ctx,
+            )
         except engine.CapacityExceededError as exc:
             raise HTTPException(429, "STATION_CAPACITY_EXHAUSTED") from exc
         new_session.load()
-
-        claims = (gateway_ctx.get("claims") or {})
-        exp = claims.get("exp")
 
         return {
             "type": "session.created",
             "sessionId": new_session.session_id,
             "serverTime": time.time(),
-            "expiresAt": exp,
+            "expiresAt": new_session.expires_at,
             "capabilities": {
                 "modelDescribe": True,
                 "getState": True,
@@ -390,6 +431,20 @@ def _handle_ws_message(
     # All remaining commands require a live session
     if session is None:
         raise HTTPException(400, "INVALID_COMMAND – no active session")
+
+    # Always validate the context captured at session creation. A later
+    # command must not be able to omit or replace exp with a non-expiring
+    # context while reusing the already-created FMU session.
+    auth.validate_gateway_context(session.gateway_context, session.access_key)
+    command_context = gateway_ctx or session.gateway_context
+    access_key = auth.extract_access_key_from_context(command_context)
+    if not access_key:
+        raise HTTPException(400, "Missing accessKey in gatewayContext")
+    access_key = _validated_access_key(access_key)
+    if access_key != session.access_key:
+        raise HTTPException(403, "FORBIDDEN – accessKey mismatch")
+    if gateway_ctx is not None:
+        auth.validate_gateway_context(command_context, access_key)
 
     if msg_type == "session.attach":
         return {

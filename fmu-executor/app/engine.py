@@ -42,9 +42,20 @@ class OutputSubscription:
 class FmuSession:
     """Manages one loaded FMI 2 Co-Simulation session."""
 
-    def __init__(self, session_id: str, fmu_path: Path):
+    def __init__(
+        self,
+        session_id: str,
+        fmu_path: Path,
+        *,
+        access_key: str | None = None,
+        expires_at: float | int | str | None = None,
+        gateway_context: dict[str, Any] | None = None,
+    ):
         self.session_id = session_id
         self.fmu_path = fmu_path
+        self.access_key = access_key or fmu_path.name
+        self.expires_at = expires_at
+        self.gateway_context = dict(gateway_context or {})
         self._extract_dir: Path | None = None
         self._slave: FMU2Slave | None = None
         self._md = None
@@ -112,19 +123,19 @@ class FmuSession:
         return {"sessionId": self.session_id, "time": self._time, "state": "initialized"}
 
     def step(self, step_size: float | None = None) -> dict[str, Any]:
-        self._ensure_live()
+        slave = self._require_slave()
         h = step_size or self._step_size
-        self._slave.doStep(currentCommunicationPoint=self._time, communicationStepSize=h)
+        slave.doStep(currentCommunicationPoint=self._time, communicationStepSize=h)
         self._time += h
         return {"time": self._time, "state": "running"}
 
     def run_until(self, target_time: float, step_size: float | None = None) -> dict[str, Any]:
-        self._ensure_live()
+        slave = self._require_slave()
         h = step_size or self._step_size
         while self._time < target_time - 1e-12:
             remaining = target_time - self._time
             actual_h = min(h, remaining)
-            self._slave.doStep(currentCommunicationPoint=self._time, communicationStepSize=actual_h)
+            slave.doStep(currentCommunicationPoint=self._time, communicationStepSize=actual_h)
             self._time += actual_h
         return {"time": self._time, "state": "running"}
 
@@ -135,13 +146,13 @@ class FmuSession:
         output_refs: list[int] | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """Step until *target_time*, yielding output snapshots at each step."""
-        self._ensure_live()
+        slave = self._require_slave()
         h = step_size or self._step_size
         seq = 0
         while self._time < target_time - 1e-12:
             remaining = target_time - self._time
             actual_h = min(h, remaining)
-            self._slave.doStep(currentCommunicationPoint=self._time, communicationStepSize=actual_h)
+            slave.doStep(currentCommunicationPoint=self._time, communicationStepSize=actual_h)
             self._time += actual_h
             outputs = self._read_outputs(output_refs)
             yield {"type": "sim.step", "seq": seq, "time": self._time, "outputs": outputs}
@@ -226,6 +237,12 @@ class FmuSession:
         if not self._initialised:
             raise RuntimeError("Session not initialised")
 
+    def _require_slave(self) -> FMU2Slave:
+        self._ensure_live()
+        if self._slave is None:
+            raise RuntimeError("FMU slave is not initialized")
+        return self._slave
+
     def _describe(self) -> dict[str, Any]:
         from . import fmu_storage
         # Re-use the same normalised describe logic
@@ -302,13 +319,25 @@ class CapacityExceededError(RuntimeError):
     """Raised when the Station execution authority has no free slot."""
 
 
-def create_session(fmu_path: Path) -> FmuSession:
+def create_session(
+    fmu_path: Path,
+    *,
+    access_key: str | None = None,
+    expires_at: float | int | str | None = None,
+    gateway_context: dict[str, Any] | None = None,
+) -> FmuSession:
     if len(_sessions) >= config.MAX_CONCURRENT_SESSIONS:
         raise CapacityExceededError(
             f"Max concurrent sessions ({config.MAX_CONCURRENT_SESSIONS}) reached"
         )
     session_id = f"sess_{uuid.uuid4().hex[:12]}"
-    session = FmuSession(session_id, fmu_path)
+    session = FmuSession(
+        session_id,
+        fmu_path,
+        access_key=access_key,
+        expires_at=expires_at,
+        gateway_context=gateway_context,
+    )
     _sessions[session_id] = session
     return session
 

@@ -392,6 +392,69 @@ class TestWebSocketSession:
             assert resp["type"] == "error"
             assert "FMU_NOT_FOUND" in resp.get("code", "")
 
+    def test_expired_session_rejects_subsequent_command(self, client, _isolate_config):
+        import time
+
+        expires_at = time.time() + 3600
+        with _mock_fmu_patches(_isolate_config):
+            with client.websocket_connect(
+                "/internal/fmu/sessions",
+                headers={"X-Internal-Session-Token": "test-secret"},
+            ) as ws:
+                ws.send_text(json.dumps({
+                    "type": "session.create",
+                    "requestId": "expiry-create",
+                    "gatewayContext": {
+                        "mode": "station",
+                        "accessKey": "Test.fmu",
+                        "claims": {"exp": expires_at},
+                    },
+                }))
+                created = json.loads(ws.receive_text())
+                assert created["type"] == "session.created"
+
+                with patch("app.auth.time.time", return_value=expires_at + 1):
+                    ws.send_text(json.dumps({
+                        "type": "sim.getState",
+                        "requestId": "expired-command",
+                        "gatewayContext": {
+                            "mode": "station",
+                            "accessKey": "Test.fmu",
+                            "claims": {},
+                        },
+                    }))
+                    response = json.loads(ws.receive_text())
+
+                assert response["type"] == "error"
+                assert response["code"] == "RESERVATION_NOT_ACTIVE"
+
+    def test_session_expiry_timer_closes_the_station_session(self, client, _isolate_config):
+        import time
+
+        expires_at = time.time() + 0.05
+        with _mock_fmu_patches(_isolate_config):
+            with client.websocket_connect(
+                "/internal/fmu/sessions",
+                headers={"X-Internal-Session-Token": "test-secret"},
+            ) as ws:
+                ws.send_text(json.dumps({
+                    "type": "session.create",
+                    "requestId": "timer-create",
+                    "gatewayContext": {
+                        "mode": "station",
+                        "accessKey": "Test.fmu",
+                        "claims": {"exp": expires_at},
+                    },
+                }))
+                created = json.loads(ws.receive_text())
+                assert created["type"] == "session.created"
+
+                closed = json.loads(ws.receive_text())
+
+                assert closed["type"] == "session.closed"
+                assert closed["sessionId"] == created["sessionId"]
+                assert closed["reason"] == "expired"
+
     def test_ping_pong_without_session(self, client):
         with client.websocket_connect(
             "/internal/fmu/sessions",
