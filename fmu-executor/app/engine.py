@@ -65,6 +65,7 @@ class FmuSession:
         self._terminated: bool = False
         self._attached: bool = False
         self._attach_deadline: float | None = None
+        self._attachment_owner: object | None = None
         # Subscription state
         self.subscription: OutputSubscription | None = None
         self.seq: int = 0
@@ -225,6 +226,7 @@ class FmuSession:
         self._terminated = True
         self._attached = False
         self._attach_deadline = None
+        self._attachment_owner = None
         if self._slave and self._initialised:
             try:
                 self._slave.terminate()
@@ -233,14 +235,21 @@ class FmuSession:
                 logger.warning("Error terminating FMU slave for session %s", self.session_id, exc_info=True)
         self._cleanup_temp()
 
-    def mark_detached(self, grace_seconds: float) -> None:
+    def mark_detached(self, grace_seconds: float, attachment_owner: object | None = None) -> None:
+        # A previous Station websocket can finish its cleanup after a newer
+        # websocket has already attached the same FMU session. In that case,
+        # the stale cleanup must not detach the newer connection.
+        if attachment_owner is not None and self._attachment_owner is not attachment_owner:
+            return
         if not self._terminated:
             self._attached = False
             self._attach_deadline = _time.time() + max(0.0, float(grace_seconds))
+            self._attachment_owner = None
 
-    def mark_attached(self) -> None:
+    def mark_attached(self, attachment_owner: object | None = None) -> None:
         self._attached = True
         self._attach_deadline = None
+        self._attachment_owner = attachment_owner
 
     def can_attach(self, now: float | None = None) -> bool:
         if self._terminated:
@@ -383,10 +392,15 @@ def get_attachable_session(session_id: str) -> FmuSession | None:
     return session
 
 
-def detach_session(session_id: str, grace_seconds: float) -> None:
+def detach_session(
+    session_id: str,
+    grace_seconds: float,
+    *,
+    attachment_owner: object | None = None,
+) -> None:
     session = _sessions.get(session_id)
     if session is not None:
-        session.mark_detached(grace_seconds)
+        session.mark_detached(grace_seconds, attachment_owner)
 
 
 def cleanup_expired_sessions(now: float | None = None) -> None:

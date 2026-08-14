@@ -913,6 +913,35 @@ class TestSessionAttach:
             assert resp["type"] == "error"
             assert resp["requestId"] == "req-attach-no-sess"
 
+    def test_stale_websocket_cleanup_cannot_detach_new_attachment(self, _isolate_config):
+        """A late disconnect from the old channel must not break a reattach."""
+        from app import engine
+
+        session = engine.FmuSession("sess-owner-race", _isolate_config / "Test.fmu")
+        engine._sessions[session.session_id] = session
+        old_connection = object()
+        new_connection = object()
+
+        session.mark_attached(old_connection)
+        session.mark_attached(new_connection)
+        engine.detach_session(
+            session.session_id,
+            grace_seconds=120,
+            attachment_owner=old_connection,
+        )
+
+        assert session._attached is True
+        assert session._attachment_owner is new_connection
+        assert session.can_attach() is True
+
+        engine.detach_session(
+            session.session_id,
+            grace_seconds=120,
+            attachment_owner=new_connection,
+        )
+        assert session._attached is False
+        assert session._attachment_owner is None
+
     def test_full_lifecycle_create_attach_terminate(self, client, _isolate_config):
         """Full lifecycle: create → attach → getState → terminate."""
         with _mock_fmu_patches(_isolate_config):

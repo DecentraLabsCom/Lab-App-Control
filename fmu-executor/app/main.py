@@ -284,6 +284,7 @@ async def ws_sessions(ws: WebSocket):
     session: engine.FmuSession | None = None
     _emitter_task: asyncio.Task | None = None
     _expiry_task: asyncio.Task | None = None
+    attachment_owner = object()
 
     async def _expire_session_after_deadline(expiring_session: engine.FmuSession):
         nonlocal session
@@ -343,8 +344,7 @@ async def ws_sessions(ws: WebSocket):
                             _expiry_task.cancel()
                             _expiry_task = None
                         session = bound_session
-                        if msg_type == "session.create":
-                            bound_session.mark_attached()
+                        bound_session.mark_attached(attachment_owner)
                         if bound_session.expires_at is not None:
                             _expiry_task = asyncio.create_task(_expire_session_after_deadline(bound_session))
                         # Start emitter task on session creation
@@ -398,7 +398,11 @@ async def ws_sessions(ws: WebSocket):
             except asyncio.CancelledError:
                 logger.debug("WebSocket emitter task cancelled during cleanup")
         if session and not session._terminated:
-            engine.detach_session(session.session_id, config.FMU_ATTACH_GRACE_SECONDS)
+            engine.detach_session(
+                session.session_id,
+                config.FMU_ATTACH_GRACE_SECONDS,
+                attachment_owner=attachment_owner,
+            )
 
 
 def _handle_ws_message(
@@ -490,7 +494,6 @@ def _handle_ws_message(
         )
         if attach_access_key != attached_session.access_key:
             raise HTTPException(403, "FORBIDDEN – accessKey mismatch")
-        attached_session.mark_attached()
         return {
             "type": "session.attached",
             "sessionId": attached_session.session_id,
