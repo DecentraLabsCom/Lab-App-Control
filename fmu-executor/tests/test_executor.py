@@ -320,6 +320,15 @@ class TestRunSimulation:
 # ---------------------------------------------------------------------------
 
 class TestWebSocketAuth:
+    def test_ws_rejects_when_token_is_not_configured(self, client, monkeypatch):
+        from starlette.websockets import WebSocketDisconnect
+
+        monkeypatch.setattr("app.main.config.internal_token", lambda: "")
+        with pytest.raises(WebSocketDisconnect) as exc_info:
+            with client.websocket_connect("/internal/fmu/sessions"):
+                pass
+        assert exc_info.value.code == 4001
+
     def test_ws_rejects_missing_token(self, client):
         from starlette.websockets import WebSocketDisconnect
         with pytest.raises(WebSocketDisconnect) as exc_info:

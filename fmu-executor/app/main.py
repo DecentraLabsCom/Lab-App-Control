@@ -276,7 +276,7 @@ async def ws_sessions(ws: WebSocket):
     # Validate internal token from headers (timing-safe comparison)
     token = ws.headers.get("x-internal-session-token") or ""
     internal_token = config.internal_token()
-    if internal_token and not secrets.compare_digest(token, internal_token):
+    if not internal_token or not secrets.compare_digest(token, internal_token):
         await ws.close(code=4001, reason="UNAUTHORIZED")
         return
 
