@@ -58,6 +58,25 @@ def validate_gateway_context(ctx: dict | None, access_key: str) -> None:
             raise HTTPException(status_code=403, detail="RESERVATION_NOT_ACTIVE") from exc
 
 
+def _binding_value(ctx: dict, key: str) -> str:
+    claims = ctx.get("claims") or {}
+    value = ctx.get(key) or claims.get(key)
+    return str(value or "").strip().lower()
+
+
+def validate_session_context(ctx: dict | None, expected_ctx: dict | None, access_key: str) -> None:
+    """Validate a reconnecting client against the original session binding."""
+    if ctx is None:
+        raise HTTPException(status_code=400, detail="Missing gatewayContext")
+    validate_gateway_context(ctx, access_key)
+    if expected_ctx is None:
+        raise HTTPException(status_code=403, detail="FORBIDDEN – session context unavailable")
+
+    for key in ("sub", "labId", "reservationKey", "pucHash", "targetGatewayId"):
+        if _binding_value(ctx, key) != _binding_value(expected_ctx, key):
+            raise HTTPException(status_code=403, detail="FORBIDDEN – session context mismatch")
+
+
 def extract_access_key_from_context(ctx: dict) -> str | None:
     """Return the canonical access key from a gatewayContext."""
     claims = ctx.get("claims") or {}

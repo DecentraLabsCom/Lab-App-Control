@@ -22,17 +22,18 @@ def bind_port() -> int:
     return int(_env("FMU_EXECUTOR_PORT", "8091") or "8091")
 
 # FMU storage root – each sub-folder or .fmu file is keyed by accessKey
-FMU_ROOT: Path = Path(_env("FMU_ROOT", str(Path(__file__).resolve().parent.parent / "fmu-data")))
+FMU_ROOT: Path = Path(_env("FMU_ROOT", str(Path(__file__).resolve().parent.parent / "fmu-data")) or "")
 
 # Internal auth token shared with Gateway's fmu-runner
 def internal_token() -> str | None:
     return _env("FMU_INTERNAL_TOKEN")
 
 # Temp directory for FMU extraction during execution
-TEMP_DIR: Path = Path(_env("FMU_EXECUTOR_TEMP", str(FMU_ROOT / ".tmp")))
+TEMP_DIR: Path = Path(_env("FMU_EXECUTOR_TEMP", str(FMU_ROOT / ".tmp")) or "")
 
 # Session limits
-MAX_CONCURRENT_SESSIONS: int = int(_env("FMU_MAX_SESSIONS", "4"))
+MAX_CONCURRENT_SESSIONS: int = int(_env("FMU_MAX_SESSIONS", "4") or "4")
+FMU_ATTACH_GRACE_SECONDS: int = max(0, int(_env("FMU_ATTACH_GRACE_SECONDS", "120") or "120"))
 
 # Logging
 def log_level() -> str:

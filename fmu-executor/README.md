@@ -33,6 +33,7 @@ the Gateway environment expected for station mode:
 | `FMU_ROOT` | `./fmu-data` | Directory with provisioned `.fmu` files |
 | `FMU_INTERNAL_TOKEN` | *(required)* | Shared secret for `X-Internal-Session-Token`; requests fail closed when it is absent |
 | `FMU_MAX_SESSIONS` | `4` | Effective max concurrent FMU executions (one-shot, stream and realtime) |
+| `FMU_ATTACH_GRACE_SECONDS` | `120` | How long a disconnected realtime session remains attachable before its FMU state is terminated |
 | `FMU_EXECUTOR_TEMP` | `<FMU_ROOT>/.tmp` | Temp dir for FMU extraction |
 | `FMU_LOG_LEVEL` | `INFO` | Log level |
 
@@ -62,7 +63,15 @@ All endpoints require `X-Internal-Session-Token` header (except `/internal/healt
 | GET | `/internal/fmu/capacity` | Effective execution capacity; internal token required |
 | POST | `/internal/fmu/simulations/run` | One-shot simulation run; JSON body contains `accessKey` |
 | POST | `/internal/fmu/simulations/stream` | Streaming NDJSON simulation; JSON body contains `accessKey` |
-| WS | `/internal/fmu/sessions` | Realtime session (step, setInputs, getOutputs) |
+| WS | `/internal/fmu/sessions` | Realtime session (step, setInputs, getOutputs, authenticated reconnect) |
+
+When the internal WebSocket closes unexpectedly, the executor detaches the
+session instead of immediately terminating it. A new internal connection may
+send `session.attach` with the original `sessionId` and validated
+`gatewayContext` during `FMU_ATTACH_GRACE_SECONDS`. The original subject, lab,
+FMU access key and reservation bindings must match; otherwise the attach is
+rejected. Once the grace window expires, the FMU state and temporary files are
+cleaned up.
 
 ## FMU provisioning
 

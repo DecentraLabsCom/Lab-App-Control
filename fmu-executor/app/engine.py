@@ -63,6 +63,8 @@ class FmuSession:
         self._step_size: float = 0.001
         self._initialised: bool = False
         self._terminated: bool = False
+        self._attached: bool = False
+        self._attach_deadline: float | None = None
         # Subscription state
         self.subscription: OutputSubscription | None = None
         self.seq: int = 0
@@ -221,6 +223,8 @@ class FmuSession:
         if self._terminated:
             return
         self._terminated = True
+        self._attached = False
+        self._attach_deadline = None
         if self._slave and self._initialised:
             try:
                 self._slave.terminate()
@@ -228,6 +232,29 @@ class FmuSession:
             except Exception:
                 logger.warning("Error terminating FMU slave for session %s", self.session_id, exc_info=True)
         self._cleanup_temp()
+
+    def mark_detached(self, grace_seconds: float) -> None:
+        if not self._terminated:
+            self._attached = False
+            self._attach_deadline = _time.time() + max(0.0, float(grace_seconds))
+
+    def mark_attached(self) -> None:
+        self._attached = True
+        self._attach_deadline = None
+
+    def can_attach(self, now: float | None = None) -> bool:
+        if self._terminated:
+            return False
+        if not self._attached and self._attach_deadline is None:
+            return False
+        now = _time.time() if now is None else now
+        if self.expires_at is not None:
+            try:
+                if float(self.expires_at) <= now:
+                    return False
+            except (TypeError, ValueError):
+                return False
+        return self._attach_deadline is None or now < self._attach_deadline
 
     # ── private ──────────────────────────────────────────────────
 
@@ -326,6 +353,7 @@ def create_session(
     expires_at: float | int | str | None = None,
     gateway_context: dict[str, Any] | None = None,
 ) -> FmuSession:
+    cleanup_expired_sessions()
     if len(_sessions) >= config.MAX_CONCURRENT_SESSIONS:
         raise CapacityExceededError(
             f"Max concurrent sessions ({config.MAX_CONCURRENT_SESSIONS}) reached"
@@ -346,6 +374,32 @@ def get_session(session_id: str) -> FmuSession | None:
     return _sessions.get(session_id)
 
 
+def get_attachable_session(session_id: str) -> FmuSession | None:
+    session = _sessions.get(session_id)
+    if session is None or not session.can_attach():
+        if session is not None and not session.can_attach():
+            remove_session(session_id)
+        return None
+    return session
+
+
+def detach_session(session_id: str, grace_seconds: float) -> None:
+    session = _sessions.get(session_id)
+    if session is not None:
+        session.mark_detached(grace_seconds)
+
+
+def cleanup_expired_sessions(now: float | None = None) -> None:
+    now = _time.time() if now is None else now
+    expired = [
+        session_id
+        for session_id, session in list(_sessions.items())
+        if not session._attached and not session.can_attach(now)
+    ]
+    for session_id in expired:
+        remove_session(session_id)
+
+
 def remove_session(session_id: str) -> None:
     session = _sessions.pop(session_id, None)
     if session:
@@ -353,6 +407,7 @@ def remove_session(session_id: str) -> None:
 
 
 def active_session_count() -> int:
+    cleanup_expired_sessions()
     return len(_sessions)
 
 

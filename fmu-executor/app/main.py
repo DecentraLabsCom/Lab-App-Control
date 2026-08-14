@@ -31,11 +31,22 @@ from . import config, fmu_storage, engine, auth
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="FMU Executor", version="0.1.0", docs_url=None, redoc_url=None)
+_session_cleanup_task: asyncio.Task | None = None
+
+
+async def _cleanup_sessions_loop() -> None:
+    try:
+        while True:
+            engine.cleanup_expired_sessions()
+            await asyncio.sleep(1)
+    except asyncio.CancelledError:
+        return
 
 # ── Startup / shutdown ───────────────────────────────────────────
 
 @app.on_event("startup")
 async def _startup() -> None:
+    global _session_cleanup_task
     logging.basicConfig(level=getattr(logging, config.log_level(), logging.INFO))
     config.FMU_ROOT.mkdir(parents=True, exist_ok=True)
     config.TEMP_DIR.mkdir(parents=True, exist_ok=True)
@@ -43,10 +54,20 @@ async def _startup() -> None:
         "FMU Executor starting – root=%s, port=%s, max_sessions=%s",
         config.FMU_ROOT, config.bind_port(), config.MAX_CONCURRENT_SESSIONS,
     )
+    if _session_cleanup_task is None or _session_cleanup_task.done():
+        _session_cleanup_task = asyncio.create_task(_cleanup_sessions_loop())
 
 
 @app.on_event("shutdown")
 async def _shutdown() -> None:
+    global _session_cleanup_task
+    if _session_cleanup_task:
+        _session_cleanup_task.cancel()
+        try:
+            await _session_cleanup_task
+        except asyncio.CancelledError:
+            pass
+        _session_cleanup_task = None
     logger.info("Shutting down – terminating all sessions")
     engine.terminate_all()
 
@@ -315,13 +336,20 @@ async def ws_sessions(ws: WebSocket):
 
             try:
                 response = _handle_ws_message(msg_type, msg, gateway_ctx, session)
-                if msg_type == "session.create":
-                    session = response.pop("_session", None)
-                    if session and session.expires_at is not None:
-                        _expiry_task = asyncio.create_task(_expire_session_after_deadline(session))
-                    # Start emitter task on session creation
-                    if _emitter_task is None:
-                        _emitter_task = asyncio.create_task(_output_emitter())
+                if msg_type in ("session.create", "session.attach"):
+                    bound_session = response.pop("_session", None)
+                    if bound_session is not None:
+                        if _expiry_task:
+                            _expiry_task.cancel()
+                            _expiry_task = None
+                        session = bound_session
+                        if msg_type == "session.create":
+                            bound_session.mark_attached()
+                        if bound_session.expires_at is not None:
+                            _expiry_task = asyncio.create_task(_expire_session_after_deadline(bound_session))
+                        # Start emitter task on session creation
+                        if _emitter_task is None or _emitter_task.done():
+                            _emitter_task = asyncio.create_task(_output_emitter())
                 elif msg_type == "session.terminate":
                     if _expiry_task:
                         _expiry_task.cancel()
@@ -369,8 +397,8 @@ async def ws_sessions(ws: WebSocket):
                 await _emitter_task
             except asyncio.CancelledError:
                 logger.debug("WebSocket emitter task cancelled during cleanup")
-        if session:
-            engine.remove_session(session.session_id)
+        if session and not session._terminated:
+            engine.detach_session(session.session_id, config.FMU_ATTACH_GRACE_SECONDS)
 
 
 def _handle_ws_message(
@@ -428,6 +456,48 @@ def _handle_ws_message(
             "_session": new_session,
         }
 
+    if msg_type == "session.attach":
+        requested_session_id = str(msg.get("sessionId") or "").strip()
+        if session is None:
+            if not requested_session_id:
+                raise HTTPException(400, "INVALID_COMMAND – missing sessionId")
+            if not isinstance(gateway_ctx, dict):
+                raise HTTPException(400, "Missing gatewayContext")
+            attached_session = engine.get_attachable_session(requested_session_id)
+            if attached_session is None:
+                raise HTTPException(400, "INVALID_COMMAND – no active session")
+        else:
+            if requested_session_id and requested_session_id != session.session_id:
+                raise HTTPException(403, "FORBIDDEN – sessionId mismatch")
+            attached_session = engine.get_attachable_session(session.session_id)
+            if attached_session is None:
+                raise HTTPException(401, "SESSION_EXPIRED")
+
+        attach_context = (
+            attached_session.gateway_context
+            if session is not None and gateway_ctx is None
+            else gateway_ctx
+        )
+        if not isinstance(attach_context, dict):
+            raise HTTPException(400, "Missing gatewayContext")
+        attach_access_key = auth.extract_access_key_from_context(attach_context)
+        if not attach_access_key:
+            raise HTTPException(400, "Missing accessKey in gatewayContext")
+        auth.validate_session_context(
+            attach_context,
+            attached_session.gateway_context,
+            attached_session.access_key,
+        )
+        if attach_access_key != attached_session.access_key:
+            raise HTTPException(403, "FORBIDDEN – accessKey mismatch")
+        attached_session.mark_attached()
+        return {
+            "type": "session.attached",
+            "sessionId": attached_session.session_id,
+            "serverTime": time.time(),
+            "_session": attached_session,
+        }
+
     # All remaining commands require a live session
     if session is None:
         raise HTTPException(400, "INVALID_COMMAND – no active session")
@@ -445,13 +515,6 @@ def _handle_ws_message(
         raise HTTPException(403, "FORBIDDEN – accessKey mismatch")
     if gateway_ctx is not None:
         auth.validate_gateway_context(command_context, access_key)
-
-    if msg_type == "session.attach":
-        return {
-            "type": "session.attached",
-            "sessionId": session.session_id,
-            "serverTime": time.time(),
-        }
 
     if msg_type == "model.describe":
         desc = fmu_storage.describe(session.fmu_path.name)

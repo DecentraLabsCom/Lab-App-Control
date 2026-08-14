@@ -32,6 +32,7 @@ def _isolate_config(tmp_path: Path):
         "FMU_EXECUTOR_TEMP": str(temp_dir),
         "FMU_INTERNAL_TOKEN": "test-secret",
         "FMU_MAX_SESSIONS": "4",
+        "FMU_ATTACH_GRACE_SECONDS": "120",
         "FMU_LOG_LEVEL": "WARNING",
     }):
         # Re-import config so the patched env takes effect
@@ -744,16 +745,17 @@ def _mock_fmu_patches(fmu_root: Path):
     return _Patches()
 
 
-def _ws_create_session(ws, request_id: str = "req-create"):
+def _ws_create_session(ws, request_id: str = "req-create", gateway_context=None):
     """Send session.create and return the response dict."""
+    gateway_context = gateway_context or {
+        "mode": "station",
+        "accessKey": "Test.fmu",
+        "claims": {},
+    }
     ws.send_text(json.dumps({
         "type": "session.create",
         "requestId": request_id,
-        "gatewayContext": {
-            "mode": "station",
-            "accessKey": "Test.fmu",
-            "claims": {},
-        },
+        "gatewayContext": gateway_context,
     }))
     resp = json.loads(ws.receive_text())
     assert resp["type"] == "session.created", f"Unexpected: {resp}"
@@ -785,6 +787,108 @@ class TestSessionAttach:
                 assert resp["sessionId"] == session_id
                 assert resp["requestId"] == "req-attach"
                 assert "serverTime" in resp
+
+    def test_attach_after_station_websocket_disconnect_preserves_session(self, client, _isolate_config):
+        """A new Station WebSocket can reattach to the existing FMU state."""
+        from app import engine
+
+        with _mock_fmu_patches(_isolate_config):
+            gateway_context = {
+                "mode": "station",
+                "accessKey": "Test.fmu",
+                "claims": {"sub": "user-1", "reservationKey": "res-1"},
+            }
+            with client.websocket_connect(
+                "/internal/fmu/sessions",
+                headers={"X-Internal-Session-Token": "test-secret"},
+            ) as ws:
+                created = _ws_create_session(
+                    ws,
+                    request_id="reconnect-create",
+                    gateway_context=gateway_context,
+                )
+                session_id = created["sessionId"]
+
+            assert engine.get_session(session_id) is not None
+
+            with client.websocket_connect(
+                "/internal/fmu/sessions",
+                headers={"X-Internal-Session-Token": "test-secret"},
+            ) as ws:
+                ws.send_text(json.dumps({
+                    "type": "session.attach",
+                    "requestId": "reconnect-attach",
+                    "sessionId": session_id,
+                    "gatewayContext": gateway_context,
+                }))
+                attached = json.loads(ws.receive_text())
+                assert attached["type"] == "session.attached"
+                assert attached["sessionId"] == session_id
+
+                ws.send_text(json.dumps({
+                    "type": "sim.getState",
+                    "requestId": "reconnect-state",
+                }))
+                state = json.loads(ws.receive_text())
+                assert state["type"] == "sim.state"
+                assert state["state"] == "loaded"
+
+    def test_attach_after_disconnect_rejects_different_reservation_context(self, client, _isolate_config):
+        """Reattach must retain the original reservation binding."""
+        from app import engine
+
+        with _mock_fmu_patches(_isolate_config):
+            original_context = {
+                "mode": "station",
+                "accessKey": "Test.fmu",
+                "claims": {"sub": "user-1", "reservationKey": "res-1"},
+            }
+            with client.websocket_connect(
+                "/internal/fmu/sessions",
+                headers={"X-Internal-Session-Token": "test-secret"},
+            ) as ws:
+                created = _ws_create_session(
+                    ws,
+                    request_id="mismatch-create",
+                    gateway_context=original_context,
+                )
+                session_id = created["sessionId"]
+
+            mismatched_context = {
+                **original_context,
+                "claims": {"sub": "user-1", "reservationKey": "res-other"},
+            }
+            with client.websocket_connect(
+                "/internal/fmu/sessions",
+                headers={"X-Internal-Session-Token": "test-secret"},
+            ) as ws:
+                ws.send_text(json.dumps({
+                    "type": "session.attach",
+                    "requestId": "mismatch-attach",
+                    "sessionId": session_id,
+                    "gatewayContext": mismatched_context,
+                }))
+                response = json.loads(ws.receive_text())
+                assert response["type"] == "error"
+                assert response["code"] == "FORBIDDEN"
+
+            assert engine.get_session(session_id) is not None
+
+    def test_detached_session_is_removed_after_attach_grace(self, client, _isolate_config, monkeypatch):
+        """A disconnected session must not consume capacity indefinitely."""
+        from app import config, engine
+
+        monkeypatch.setattr(config, "FMU_ATTACH_GRACE_SECONDS", 0)
+        with _mock_fmu_patches(_isolate_config):
+            with client.websocket_connect(
+                "/internal/fmu/sessions",
+                headers={"X-Internal-Session-Token": "test-secret"},
+            ) as ws:
+                created = _ws_create_session(ws, request_id="grace-create")
+                session_id = created["sessionId"]
+
+            engine.cleanup_expired_sessions()
+            assert engine.get_session(session_id) is None
 
     def test_attach_without_create_fails(self, client):
         """session.attach requires an active session."""
