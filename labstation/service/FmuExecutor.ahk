@@ -74,7 +74,7 @@ class LS_FmuExecutor {
 
         command := Format('"{1}" -m app', pythonExe)
         try {
-            Run(command, LAB_STATION_FMU_EXECUTOR_DIR, "Hide", &pid)
+            pid := this.LaunchProcess(command, LAB_STATION_FMU_EXECUTOR_DIR, "Hide")
             this._pid := pid
             this._consecutiveFailures := 0
             LS_LogInfo(Format("FMU executor: started (PID={1})", pid))
@@ -90,8 +90,7 @@ class LS_FmuExecutor {
             return true
         LS_LogInfo(Format("FMU executor: stopping (PID={1})", this._pid))
         try {
-            cmd := Format('taskkill /PID {1} /T /F', this._pid)
-            RunWait(cmd, , "Hide")
+            this.StopProcess(this._pid)
         } catch {
         }
         this._pid := 0
@@ -101,7 +100,7 @@ class LS_FmuExecutor {
 
     static Restart() {
         this.Stop()
-        Sleep 1000
+        this.WaitBeforeRestart(1000)
         return this.Start()
     }
 
@@ -112,7 +111,7 @@ $ErrorActionPreference = 'Stop'
 Remove-NetFirewallRule -Name 'LabStation-FMU-Executor' -ErrorAction SilentlyContinue
 New-NetFirewallRule -Name 'LabStation-FMU-Executor' -DisplayName 'Lab Station FMU Executor' -Direction Inbound -Action Allow -Protocol TCP -LocalPort {1} -Profile Domain,Private -ErrorAction Stop | Out-Null
         )", LAB_STATION_FMU_EXECUTOR_PORT)
-        return LS_RunPowerShell(script, "Configure FMU executor firewall") = 0
+        return this.RunPowerShell(script, "Configure FMU executor firewall") = 0
     }
 
     ; ── health probing ──────────────────────────────────────
@@ -128,7 +127,7 @@ try {{
     Write-Output 'ERROR'
 }}
         )", url)
-        capture := LS_RunPowerShellCapture(script, "FMU executor health check")
+        capture := this.RunPowerShellCapture(script, "FMU executor health check")
         output := Trim(capture["stdout"])
         if (output = "ERROR" || output = "" || capture["exitCode"] != 0) {
             this._consecutiveFailures += 1
@@ -207,7 +206,7 @@ if (Test-Path `$Path) {{
     Get-ChildItem -Path `$Path -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 }}
         )", StrReplace(tempDir, "'", "''"))
-        exitCode := LS_RunPowerShell(script, "Clean FMU executor temp")
+        exitCode := this.RunPowerShell(script, "Clean FMU executor temp")
         return exitCode = 0
     }
 
@@ -216,7 +215,7 @@ if (Test-Path `$Path) {{
     static _FindPython() {
         candidates := ["python", "python3"]
         for cmd in candidates {
-            capture := LS_RunCommandCapture(Format('{1} --version', cmd), "Check " . cmd)
+            capture := this.RunCommandCapture(Format('{1} --version', cmd), "Check " . cmd)
             if (capture["exitCode"] = 0 && InStr(capture["stdout"], "Python"))
                 return cmd
         }
@@ -233,7 +232,33 @@ try {{
     Write-Output '0'
 }}
         )", pid)
-        capture := LS_RunPowerShellCapture(script, "Check PID " . pid)
+        capture := this.RunPowerShellCapture(script, "Check PID " . pid)
         return InStr(Trim(capture["stdout"]), "1") > 0
+    }
+
+    static LaunchProcess(command, workingDir, options) {
+        Run(command, workingDir, options, &pid)
+        return pid
+    }
+
+    static StopProcess(pid) {
+        cmd := Format('taskkill /PID {1} /T /F', pid)
+        return RunWait(cmd, , "Hide")
+    }
+
+    static WaitBeforeRestart(milliseconds) {
+        Sleep milliseconds
+    }
+
+    static RunPowerShell(script, description) {
+        return LS_RunPowerShell(script, description)
+    }
+
+    static RunPowerShellCapture(script, description, timeoutMs := 15000) {
+        return LS_RunPowerShellCapture(script, description, timeoutMs)
+    }
+
+    static RunCommandCapture(command, description) {
+        return LS_RunCommandCapture(command, description)
     }
 }

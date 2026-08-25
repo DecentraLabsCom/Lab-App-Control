@@ -12,7 +12,7 @@ class LS_ServiceManager {
     static TaskName := "LabStation\BackgroundService"
 
     static Install() {
-        if (!LS_EnsureAdmin()) {
+        if (!this.EnsureAdmin()) {
             return false
         }
         if (A_IsCompiled) {
@@ -21,7 +21,7 @@ class LS_ServiceManager {
             exe := Format('"{1}" "{2}" service-loop', A_AhkPath, LAB_STATION_ROOT "\LabStation.ahk")
         }
         cmd := Format('schtasks /create /TN "{1}" /TR "{2}" /SC ONSTART /RL HIGHEST /RU SYSTEM /F', this.TaskName, exe)
-        result := LS_RunCommand(cmd, "Create Lab Station service task")
+        result := this.RunCommand(cmd, "Create Lab Station service task")
         if (result = 0) {
             LS_LogInfo("Lab Station background task installed")
             return true
@@ -31,11 +31,11 @@ class LS_ServiceManager {
     }
 
     static Uninstall() {
-        if (!LS_EnsureAdmin()) {
+        if (!this.EnsureAdmin()) {
             return false
         }
         cmd := Format('schtasks /delete /TN "{1}" /F', this.TaskName)
-        result := LS_RunCommand(cmd, "Delete Lab Station service task")
+        result := this.RunCommand(cmd, "Delete Lab Station service task")
         if (result = 0) {
             LS_LogInfo("Background task removed")
             return true
@@ -46,19 +46,19 @@ class LS_ServiceManager {
 
     static Start() {
         cmd := Format('schtasks /run /TN "{1}"', this.TaskName)
-        result := LS_RunCommand(cmd, "Start Lab Station task")
+        result := this.RunCommand(cmd, "Start Lab Station task")
         return result = 0
     }
 
     static Stop() {
         cmd := Format('schtasks /end /TN "{1}"', this.TaskName)
-        result := LS_RunCommand(cmd, "Stop Lab Station task")
+        result := this.RunCommand(cmd, "Stop Lab Station task")
         return result = 0
     }
 
     static StatusText() {
         cmd := Format('schtasks /query /TN "{1}" /FO LIST /V', this.TaskName)
-        capture := LS_RunCommandCapture(cmd, "Query Lab Station task")
+        capture := this.RunCommandCapture(cmd, "Query Lab Station task")
         return capture["stdout"] ? capture["stdout"] : capture["stderr"]
     }
 
@@ -84,7 +84,7 @@ try {
     } | ConvertTo-Json -Compress
 }
         )"
-        capture := LS_RunPowerShellCapture(script, "Query Lab Station scheduled task")
+        capture := this.RunPowerShellCapture(script, "Query Lab Station scheduled task")
         if (capture["exitCode"] != 0 || Trim(capture["stdout"]) = "") {
             return Map("installed", false, "state", "Unknown", "running", false, "restartable", false)
         }
@@ -99,5 +99,21 @@ try {
         } catch {
             return Map("installed", false, "state", "Unknown", "running", false, "restartable", false)
         }
+    }
+
+    static EnsureAdmin() {
+        return LS_EnsureAdmin()
+    }
+
+    static RunCommand(command, description) {
+        return LS_RunCommand(command, description)
+    }
+
+    static RunCommandCapture(command, description) {
+        return LS_RunCommandCapture(command, description)
+    }
+
+    static RunPowerShellCapture(script, description) {
+        return LS_RunPowerShellCapture(script, description)
     }
 }

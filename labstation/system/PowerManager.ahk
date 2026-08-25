@@ -40,7 +40,7 @@ class LS_PowerManager {
         readiness := options["skipWakeCheck"] ? this.ReadinessSkipped() : this.ValidateWakeReadiness()
         if (!readiness["ok"] && options["repairWake"]) {
             LS_LogWarning("Wake readiness issues detected before power action. Reapplying WoL configuration...")
-            LS_WakeOnLan.Configure()
+            this.ConfigureWake()
             readiness := options["skipWakeCheck"] ? this.ReadinessSkipped() : this.ValidateWakeReadiness()
         }
         if (!readiness["ok"]) {
@@ -54,12 +54,20 @@ class LS_PowerManager {
         }
         command := this.BuildCommand(mode, options)
         description := mode = "hibernate" ? "Schedule hibernate" : "Schedule shutdown"
-        exitCode := LS_RunCommand(command, description)
+        exitCode := this.ScheduleCommand(command, description)
         success := (exitCode = 0)
         if (!success)
             LS_LogError(Format("Power action failed (exit={1})", exitCode))
         this.RecordPowerAction(success, mode, options, readiness)
         return success
+    }
+
+    static ConfigureWake() {
+        return LS_WakeOnLan.Configure()
+    }
+
+    static ScheduleCommand(command, description) {
+        return LS_RunCommand(command, description)
     }
 
     static LogRequest(mode, options) {

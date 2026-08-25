@@ -93,6 +93,46 @@ jobs:
         run: |
           & $Env:AHK_EXE labstation\tests\IntegrationContractTests.ahk
 
+      - name: Run LabStation reservation flow tests
+        shell: powershell
+        run: |
+          & $Env:AHK_EXE labstation\tests\ReservationFlowTests.ahk
+
+      - name: Run LabStation command queue tests
+        shell: powershell
+        run: |
+          & $Env:AHK_EXE labstation\tests\CommandQueueTests.ahk
+
+      - name: Run LabStation session guard tests
+        shell: powershell
+        run: |
+          & $Env:AHK_EXE labstation\tests\SessionGuardTests.ahk
+
+      - name: Run LabStation recovery tests
+        shell: powershell
+        run: |
+          & $Env:AHK_EXE labstation\tests\RecoveryTests.ahk
+
+      - name: Run LabStation power manager tests
+        shell: powershell
+        run: |
+          & $Env:AHK_EXE labstation\tests\PowerManagerTests.ahk
+
+      - name: Run LabStation service manager tests
+        shell: powershell
+        run: |
+          & $Env:AHK_EXE labstation\tests\ServiceManagerTests.ahk
+
+      - name: Run LabStation FMU executor tests
+        shell: powershell
+        run: |
+          & $Env:AHK_EXE labstation\tests\FmuExecutorTests.ahk
+
+      - name: Run LabStation telemetry tests
+        shell: powershell
+        run: |
+          & $Env:AHK_EXE labstation\tests\TelemetryTests.ahk
+
       - name: Run DualAppMode smoke test
         shell: powershell
         run: |
