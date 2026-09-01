@@ -103,10 +103,10 @@ profile keeps the station usable by local users as well.
 | `setup` | Guided wizard that chains RemoteApp policy, Wake-on-LAN tweaks, WinRM setup, autostart registration, diagnostics export, and service prompt. |
 | `remoteapp` | Sets `fAllowUnlistedRemotePrograms` and related HKLM keys for RemoteApp. |
 | `wol` | Configures adapters and power plan settings required for Wake-on-LAN. |
-| `winrm [configure|status]` | Enables WinRM HTTPS on port 5986, exports the server certificate, opens the scoped HTTPS firewall rule, creates/updates `.\LabGatewaySvc`, and reports readiness. Trust the exported certificate on Lab Gateway and save the generated credentials in Lab Manager -> Lab Station Ops -> WinRM Credentials. |
+| `winrm [configure\|status]` | Enables WinRM HTTPS on port 5986, exports the server certificate, opens the scoped HTTPS firewall rule, creates/updates `.\LabGatewaySvc`, and reports readiness. Trust the exported certificate on Lab Gateway and save the generated credentials in Lab Manager -> Lab Station Ops -> WinRM Credentials. |
 | `autostart [path]` | Registers AppControl (EXE or AHK) under HKLM\Run; optional custom path overrides bundle location. |
 | `launch-app-control [...]` | Pass-through launcher that proxies CLI args to the bundled controller. |
-| `account [create|autologon|lockdown|setup] [user] [password]` | Creates the lab account, refreshes autologon (DefaultUserName/Password), and `lockdown` now enforces `SeDenyInteractiveLogonRight` for every other local user. |
+| `account [create\|autologon\|lockdown\|setup] [user] [password]` | Creates the lab account, refreshes autologon (DefaultUserName/Password), and `lockdown` now enforces `SeDenyInteractiveLogonRight` for every other local user. |
 | `status` / `status-json [dest]` | Generates the latest health summary; JSON defaults to `labstation/data/status.json`. |
 | `diagnostics [dest]` | Convenience alias of `status-json` for explicit exports. |
 | `session guard [--grace=120] [--user=LABUSER]` | Warns local/console sessions, waits the grace period, forces logoff, and appends an audit entry to `data/telemetry/session-guard-events.jsonl`. |
@@ -116,7 +116,7 @@ profile keeps the station usable by local users as well.
 | `power shutdown [--delay=0] [--reason=text] [--no-force] [--skip-wake-check]`<br>`power hibernate [...]` | Validates WoL readiness (optionally reapplying NIC settings) and schedules a graceful shutdown or hibernate so Lab Gateway can power off hosts at the end of a reservation without breaking WoL. Detailed verification steps are maintained in private developer notes. |
 | `tray` | Starts the tray UI with shortcuts to logs, wizard, and manual exports. |
 | `energy audit [--json=path]` | Collects power plan, sleep/hibernate timers, NIC wake settings, and WoL readiness; optionally exports JSON for compliance. |
-| `service install|start|stop|status|uninstall` | Manages the Scheduled Task (`LabStationService`) that runs the `service-loop`. |
+| `service install\|start\|stop\|status\|uninstall` | Manages the Scheduled Task (`LabStationService`) that runs the `service-loop`. |
 | `service-loop` | Internal command invoked by the service to refresh diagnostics every minute. |
 
 > For hybrid (local + remote) classrooms see `docs/hybrid-operations.md`, which outlines the professor-facing notices and grace windows enforced by `session guard`. UI implementation guidance is maintained in private developer notes. Lab Gateway can toggle `labstation/data/local-mode.flag` to mark "local-use only" windows before launching remote reservations.
