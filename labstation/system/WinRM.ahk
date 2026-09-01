@@ -21,7 +21,11 @@ class LS_WinRM {
         }
         localPassword := password && password != "" ? password : this.GeneratePassword()
         script := this.BuildConfigureScript(user, localPassword)
-        capture := LS_RunPowerShellCapture(script, "Configure WinRM for Lab Gateway")
+        capture := LS_RunPowerShellCapture(
+            script,
+            "Configure WinRM for Lab Gateway",
+            LAB_STATION_LONG_COMMAND_TIMEOUT_MS
+        )
         exitCode := capture["exitCode"]
         status := exitCode = 0 ? this.GetStatus() : Map("ready", false)
         if (exitCode = 0 && status.Has("ready") && status["ready"]) {
@@ -32,7 +36,7 @@ class LS_WinRM {
                 LS_LogInfo(certificateInfo)
             return true
         }
-        detail := Trim(capture["stderr"] != "" ? capture["stderr"] : capture["stdout"])
+        detail := LS_CaptureDetail(capture)
         if (detail != "")
             LS_LogError("WinRM configuration failed or not ready (exit=" . exitCode . "): " . detail)
         else
@@ -93,9 +97,13 @@ try { $negotiateAuth = [bool](Get-Item WSMan:\localhost\Service\Auth\Negotiate -
     ntlmAuth = [bool]$negotiateAuth
 } | ConvertTo-Json -Compress
         )"
-        capture := LS_RunPowerShellCapture(script, "Query WinRM status")
+        capture := LS_RunPowerShellCapture(
+            script,
+            "Query WinRM status",
+            LAB_STATION_COMMAND_TIMEOUT_MS
+        )
         if (capture["exitCode"] != 0 || Trim(capture["stdout"]) = "") {
-            detail := Trim(capture["stderr"] != "" ? capture["stderr"] : capture["stdout"])
+            detail := LS_CaptureDetail(capture)
             if (detail != "")
                 LS_LogWarning("Unable to query WinRM status: " . detail)
             else

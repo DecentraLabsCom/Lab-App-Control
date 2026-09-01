@@ -55,6 +55,7 @@ try {
 try {
     statusSource := FileRead(A_ScriptDir . "\..\diagnostics\Status.ahk", "UTF-8")
     AssertContains("status", statusSource, 'summary["ready"]', &errors)
+    AssertNotContains("status", statusSource, ">nul 2>&1", &errors)
 } catch as e {
     errors.Push("status: contract threw - " . e.Message)
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0] - 2026-09-01
+
+### Fixed
+- WinRM setup now allows slow first-run operations enough time to complete on clean Windows installations and preserves both stdout and stderr in failure diagnostics.
+- Background service task installation now uses the native ScheduledTasks cmdlets with separate executable, arguments, and working directory fields, including paths containing spaces or apostrophes.
+- Security-policy diagnostics no longer pass shell-redirection tokens to `secedit` as native command arguments.
+
 ## [3.2.0] - 2026-08-13
 
 ### Added

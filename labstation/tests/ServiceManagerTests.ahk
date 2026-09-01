@@ -34,8 +34,8 @@ class RecordingServiceManager extends LS_ServiceManager {
         return this.powershellResult
     }
 
-    static RunPowerShellCapture(script, description) {
-        this.captures.Push(Map("script", script, "description", description))
+    static RunPowerShellCapture(script, description, timeoutMs := 0) {
+        this.captures.Push(Map("script", script, "description", description, "timeoutMs", timeoutMs))
         return this.powershellResult
     }
 }
@@ -43,8 +43,9 @@ class RecordingServiceManager extends LS_ServiceManager {
 RunServiceManagerTests() {
     try {
         TestInstallRequiresAdmin()
-        TestInstallBuildsOnStartTaskCommand()
+        TestInstallBuildsOnStartTaskDefinition()
         TestInstallReportsTaskSchedulerFailure()
+        TestInstallEscapesPowerShellSingleQuotesAndKeepsArgumentsSeparate()
         TestUninstallUsesTaskNameAndReportsFailure()
         TestStartAndStopUseTaskName()
         TestStatusTextPrefersStdoutAndFallsBackToStderr()
@@ -71,30 +72,46 @@ TestInstallRequiresAdmin() {
 
     Assert(!result, "service install fails when administrator privileges are unavailable")
     Assert(RecordingServiceManager.commands.Length = 0, "service install does not touch Task Scheduler when authorization fails")
+    Assert(RecordingServiceManager.captures.Length = 0, "service install does not invoke PowerShell when authorization fails")
 }
 
-TestInstallBuildsOnStartTaskCommand() {
+TestInstallBuildsOnStartTaskDefinition() {
     RecordingServiceManager.Reset()
 
     result := RecordingServiceManager.Install()
 
-    Assert(result, "service install succeeds when schtasks accepts the request")
-    Assert(RecordingServiceManager.commands.Length = 1, "service install invokes Task Scheduler once")
-    command := RecordingServiceManager.commands[1]["command"]
-    Assert(InStr(command, "schtasks /create") > 0, "service install creates a scheduled task")
-    Assert(InStr(command, "LabStation\BackgroundService") > 0, "service install uses the canonical task name")
-    Assert(InStr(command, "/SC ONSTART") > 0, "service install starts the task at system startup")
-    Assert(InStr(command, "/RL HIGHEST") > 0 && InStr(command, "/RU SYSTEM") > 0, "service install uses the required elevated system principal")
-    Assert(InStr(command, "service-loop") > 0 && InStr(command, "LabStation.ahk") > 0, "service install points the task at the service loop")
+    Assert(result, "service install succeeds when Task Scheduler accepts the request")
+    Assert(RecordingServiceManager.commands.Length = 0, "service install does not use fragile schtasks quoting")
+    Assert(RecordingServiceManager.captures.Length = 1, "service install invokes Task Scheduler once")
+    script := RecordingServiceManager.captures[1]["script"]
+    Assert(InStr(script, "Register-ScheduledTask") > 0, "service install registers a scheduled task")
+    Assert(InStr(script, "New-ScheduledTaskAction") > 0, "service install creates a task action")
+    Assert(InStr(script, "$taskPath = '\LabStation\'") > 0 && InStr(script, "$taskName = 'BackgroundService'") > 0, "service install uses the canonical task path and name")
+    Assert(InStr(script, "-AtStartup") > 0, "service install starts the task at system startup")
+    Assert(InStr(script, "-UserId 'SYSTEM'") > 0 && InStr(script, "-RunLevel Highest") > 0, "service install uses the required elevated system principal")
+    Assert(InStr(script, "service-loop") > 0 && InStr(script, "LabStation.ahk") > 0, "service install points the task at the service loop")
+    Assert(RecordingServiceManager.captures[1]["timeoutMs"] = LAB_STATION_LONG_COMMAND_TIMEOUT_MS, "service install uses the long command timeout")
 }
 
 TestInstallReportsTaskSchedulerFailure() {
     RecordingServiceManager.Reset()
-    RecordingServiceManager.commandResult := 5
+    RecordingServiceManager.powershellResult := Map("exitCode", 5, "stdout", "", "stderr", "Task Scheduler rejected the request")
 
     result := RecordingServiceManager.Install()
 
     Assert(!result, "service install reports a Task Scheduler failure")
+}
+
+TestInstallEscapesPowerShellSingleQuotesAndKeepsArgumentsSeparate() {
+    script := LS_ServiceManager.BuildInstallScript(
+        "C:\Lab Station\O'Connor\LabStation.exe",
+        "service-loop",
+        "C:\Lab Station\O'Connor"
+    )
+
+    Assert(InStr(script, "$execute = 'C:\Lab Station\O''Connor\LabStation.exe'") > 0, "service install escapes apostrophes in the executable path")
+    Assert(InStr(script, "$argumentList = 'service-loop'") > 0, "service install keeps the service argument separate from the executable")
+    Assert(InStr(script, "$workingDirectory = 'C:\Lab Station\O''Connor'") > 0, "service install escapes apostrophes in the working directory")
 }
 
 TestUninstallUsesTaskNameAndReportsFailure() {

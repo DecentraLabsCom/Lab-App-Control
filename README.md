@@ -56,7 +56,7 @@ Lab Station is the default entrypoint and bundles AppControl. Use AppControl dir
 
 ### 🖼️ UI tour
 
-The screenshots below show the current v3.2.0 desktop UI. Status values are
+The screenshots below show the current v3.3.0 desktop UI. Status values are
 read from the local workstation, so host names, connector state, and warnings
 will vary between installations.
 

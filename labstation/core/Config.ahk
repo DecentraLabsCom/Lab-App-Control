@@ -4,12 +4,24 @@
 #Requires AutoHotkey v2.0
 
 if (!IsSet(LAB_STATION_VERSION)) {
-    global LAB_STATION_VERSION := "3.2.0"
+    global LAB_STATION_VERSION := "3.3.0"
 }
 
 if (!IsSet(LAB_STATION_SCHEMA_VERSION)) {
     ; Version of the telemetry/status JSON contract (heartbeat/status.json).
     global LAB_STATION_SCHEMA_VERSION := "1.0.0"
+}
+
+if (!IsSet(LAB_STATION_COMMAND_TIMEOUT_MS)) {
+    ; Native and PowerShell probes should tolerate a slow first run on a clean
+    ; Windows installation without blocking the service loop indefinitely.
+    global LAB_STATION_COMMAND_TIMEOUT_MS := 30000
+}
+
+if (!IsSet(LAB_STATION_LONG_COMMAND_TIMEOUT_MS)) {
+    ; Configuration flows can start services, load modules, create certificates
+    ; and apply security policy. Those operations legitimately take longer.
+    global LAB_STATION_LONG_COMMAND_TIMEOUT_MS := 120000
 }
 
 if (!IsSet(LAB_STATION_ROOT)) {

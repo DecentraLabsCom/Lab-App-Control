@@ -357,7 +357,10 @@ if (`$targetIsMember) { [void]`$names.Add(`$targetUser) }
     static GetSecurityRights() {
         rights := Map()
         temp := A_Temp "\LabStationPolicy-" . A_TickCount . ".inf"
-        cmd := Format('secedit /export /cfg "{1}" /areas USER_RIGHTS >nul 2>&1', temp)
+        ; RunWait launches secedit directly, so shell redirection tokens such as
+        ; >nul and 2>&1 would be passed to secedit as arguments. The process is
+        ; already hidden by LS_RunCommand; keep the command line native.
+        cmd := Format('secedit /export /cfg "{1}" /areas USER_RIGHTS', temp)
         exitCode := LS_RunCommand(cmd, "Export user rights")
         if (exitCode = 0) {
             text := ""

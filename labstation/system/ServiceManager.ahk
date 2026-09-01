@@ -16,18 +16,63 @@ class LS_ServiceManager {
             return false
         }
         if (A_IsCompiled) {
-            exe := Format('"{1}" service-loop', A_ScriptFullPath)
+            executable := A_ScriptFullPath
+            arguments := "service-loop"
+            workingDirectory := A_ScriptDir
         } else {
-            exe := Format('"{1}" "{2}" service-loop', A_AhkPath, LAB_STATION_ROOT "\LabStation.ahk")
+            executable := A_AhkPath
+            arguments := '"' . LAB_STATION_ROOT "\LabStation.ahk" . '" service-loop'
+            workingDirectory := LAB_STATION_ROOT
         }
-        cmd := Format('schtasks /create /TN "{1}" /TR "{2}" /SC ONSTART /RL HIGHEST /RU SYSTEM /F', this.TaskName, exe)
-        result := this.RunCommand(cmd, "Create Lab Station service task")
+        script := this.BuildInstallScript(executable, arguments, workingDirectory)
+        capture := this.RunPowerShellCapture(
+            script,
+            "Create Lab Station service task",
+            LAB_STATION_LONG_COMMAND_TIMEOUT_MS
+        )
+        result := capture["exitCode"]
         if (result = 0) {
             LS_LogInfo("Lab Station background task installed")
             return true
         }
-        LS_LogError("Failed to install background task (exit=" . result . ")")
+        detail := LS_CaptureDetail(capture)
+        if (detail != "")
+            LS_LogError("Failed to install background task (exit=" . result . "): " . detail)
+        else
+            LS_LogError("Failed to install background task (exit=" . result . ")")
         return false
+    }
+
+    static BuildInstallScript(executable, arguments, workingDirectory) {
+        escapedExecutable := this.EscapeForPSSingleQuote(executable)
+        escapedArguments := this.EscapeForPSSingleQuote(arguments)
+        escapedWorkingDirectory := this.EscapeForPSSingleQuote(workingDirectory)
+        template := "
+        (
+$ErrorActionPreference = 'Stop'
+$taskPath = '\LabStation\'
+$taskName = 'BackgroundService'
+$execute = '__TASK_EXECUTABLE__'
+$argumentList = '__TASK_ARGUMENTS__'
+$workingDirectory = '__TASK_WORKING_DIRECTORY__'
+
+if (-not (Get-Command -Name 'New-ScheduledTaskAction' -ErrorAction SilentlyContinue)) {
+    throw 'ScheduledTasks PowerShell cmdlets are not available'
+}
+
+$action = New-ScheduledTaskAction -Execute $execute -Argument $argumentList -WorkingDirectory $workingDirectory
+$trigger = New-ScheduledTaskTrigger -AtStartup
+$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+Register-ScheduledTask -TaskPath $taskPath -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Force | Out-Null
+Write-Output ('Registered scheduled task: ' + $taskPath + $taskName)
+        )"
+        template := StrReplace(template, "__TASK_EXECUTABLE__", escapedExecutable)
+        template := StrReplace(template, "__TASK_ARGUMENTS__", escapedArguments)
+        return StrReplace(template, "__TASK_WORKING_DIRECTORY__", escapedWorkingDirectory)
+    }
+
+    static EscapeForPSSingleQuote(value) {
+        return StrReplace(value, "'", "''")
     }
 
     static Uninstall() {
@@ -113,7 +158,7 @@ try {
         return LS_RunCommandCapture(command, description)
     }
 
-    static RunPowerShellCapture(script, description) {
-        return LS_RunPowerShellCapture(script, description)
+    static RunPowerShellCapture(script, description, timeoutMs := 0) {
+        return LS_RunPowerShellCapture(script, description, timeoutMs)
     }
 }
