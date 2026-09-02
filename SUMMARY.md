@@ -12,7 +12,7 @@
 * [Hybrid operations](docs/hybrid-operations.md)
 * [WinRM command contract](docs/winrm-command-contract.md)
 * [Status and heartbeat contract](docs/status-and-heartbeat.md)
-* [Status JSON schema](docs/status-schema.json)
+* [Status JSON schema](docs/status-json-schema.md)
 * [Heartbeat JSON schema](docs/heartbeat-schema.json)
 
 ## DEVELOPMENT

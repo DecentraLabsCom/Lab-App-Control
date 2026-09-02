@@ -15,8 +15,10 @@ the `summary.ready` verdict, operation timestamps, `localModeEnabled`, and the
 latest `lastForcedLogoff`. The heartbeat adds `host` and application `version`
 for file-drop consumers.
 
-Use the machine-readable schemas when validating ingestion:
+Use the Markdown schema guide for the field contract and the machine-readable
+schemas when validating ingestion:
 
+- [`Status JSON schema`](status-json-schema.md)
 - [`status-schema.json`](status-schema.json)
 - [`heartbeat-schema.json`](heartbeat-schema.json)
 - [`WinRM command contract`](winrm-command-contract.md)
