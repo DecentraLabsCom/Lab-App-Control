@@ -9,7 +9,7 @@ The goal is to guarantee that every Lab Station host can power on via Wake-on-LA
 3. Force the onboard NIC as the primary wake device; disable wake on Wi-Fi.
 4. Disable all automatic sleep/hibernate timers while the host is in lab mode.
 5. In Windows, run `LabStation.exe wol` after BIOS changes to refresh OS-level power settings.
-6. Validate with `LabStation.exe energy audit` (new command) and keep the JSON report in the compliance folder.
+6. Validate with `LabStation.exe energy audit --json="C:\LabStation\labstation\data\energy-<host>.json"` and keep the JSON report in the compliance folder.
 
 ## 2. Dell OptiPlex / Precision (7000, 5000 series)
 
@@ -25,7 +25,8 @@ The goal is to guarantee that every Lab Station host can power on via Wake-on-LA
 - Reboot, then from Windows run:
   ```powershell
   .\LabStation.exe wol
-  .\LabStation.exe energy audit > C:\LabStation\logs\energy-dell-<host>.txt
+  .\LabStation.exe energy audit --json="C:\LabStation\labstation\data\energy-dell-<host>.json"
+  Get-Content -Raw "C:\LabStation\labstation\data\energy-dell-<host>.json" | ConvertFrom-Json
   ```
 - Confirm `Wake-capable devices` includes `Intel(R) Ethernet Connection I219-LM` and that the audit report flags no sleep/hibernate timers.
 
@@ -66,8 +67,8 @@ The goal is to guarantee that every Lab Station host can power on via Wake-on-LA
 1. **Firmware photos**: Capture screenshots/photos of each BIOS page you changed and attach them to the hardware’s Confluence page.
 2. **Windows verification**:
    - `LabStation.exe wol`
-   - `LabStation.exe energy audit --json "C:\\LabStation\\data\\energy-<host>.json"`
-   - `LabStation.exe status-json` (verify `wake.nicPower` and `power.sleep`/`power.hibernate` to ensure WoL and timeouts remain compliant)
+   - `LabStation.exe energy audit --json="C:\LabStation\labstation\data\energy-<host>.json"`
+   - `LabStation.exe status-json "C:\LabStation\labstation\data\status.json"` (verify `wake.nicPower` and `power.sleep`/`power.hibernate` to ensure WoL and timeouts remain compliant)
 3. **Remote test**: From Lab Gateway, send a WoL packet, wait for WinRM to respond, then run `prepare-session`.
 4. **Sign-off**: Attach the audit output and WoL test log to the ticket before closing the maintenance task.
 

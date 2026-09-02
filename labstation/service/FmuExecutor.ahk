@@ -10,12 +10,22 @@
 #Include ..\core\Shell.ahk
 #Include ..\core\Json.ahk
 
+LS_ResolveFmuExecutorPort() {
+    configured := Trim(EnvGet("FMU_EXECUTOR_PORT"))
+    if (configured != "" && RegExMatch(configured, "^\d+$")) {
+        port := Integer(configured)
+        if (port >= 1 && port <= 65535)
+            return port
+    }
+    return 8091
+}
+
 if (!IsSet(LAB_STATION_FMU_EXECUTOR_DIR)) {
     global LAB_STATION_FMU_EXECUTOR_DIR := LAB_STATION_PROJECT_ROOT "\fmu-executor"
 }
 
 if (!IsSet(LAB_STATION_FMU_EXECUTOR_PORT)) {
-    global LAB_STATION_FMU_EXECUTOR_PORT := 8091
+    global LAB_STATION_FMU_EXECUTOR_PORT := LS_ResolveFmuExecutorPort()
 }
 
 if (!IsSet(LAB_STATION_FMU_EXECUTOR_LOG)) {

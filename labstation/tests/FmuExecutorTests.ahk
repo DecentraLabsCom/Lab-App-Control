@@ -146,6 +146,7 @@ RunFmuExecutorTests() {
 
     try {
         TestAvailabilityUsesExecutorLayout()
+        TestConfiguredPortUsesEnvironmentAndSafeFallback()
         TestStartRequiresAvailabilityAndToken()
         TestStartRunsTheConfiguredPythonExecutor()
         TestStartStopsBeforeLaunchWhenFirewallFails()
@@ -176,6 +177,21 @@ RunFmuExecutorTests() {
 
     FileAppend("FmuExecutorTests passed" . Chr(10), "*", "UTF-8")
     ExitApp(0)
+}
+
+TestConfiguredPortUsesEnvironmentAndSafeFallback() {
+    original := EnvGet("FMU_EXECUTOR_PORT")
+
+    EnvSet("FMU_EXECUTOR_PORT", "19091")
+    Assert(LS_ResolveFmuExecutorPort() = 19091, "FMU supervisor reads a valid port from the environment")
+
+    EnvSet("FMU_EXECUTOR_PORT", "65536")
+    Assert(LS_ResolveFmuExecutorPort() = 8091, "FMU supervisor falls back when the port is outside the TCP range")
+
+    EnvSet("FMU_EXECUTOR_PORT", "not-a-port")
+    Assert(LS_ResolveFmuExecutorPort() = 8091, "FMU supervisor falls back when the port is not numeric")
+
+    EnvSet("FMU_EXECUTOR_PORT", original)
 }
 
 TestAvailabilityUsesExecutorLayout() {
