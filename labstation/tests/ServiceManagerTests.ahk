@@ -1,4 +1,5 @@
 #Requires AutoHotkey v2.0
+#Include TestSupport.ahk
 #Include ..\system\ServiceManager.ahk
 
 global TEST_FAILURES := 0
@@ -56,11 +57,11 @@ RunServiceManagerTests() {
     }
 
     if (TEST_FAILURES > 0) {
-        FileAppend("ServiceManagerTests failed: " . TEST_FAILURES . " failure(s)" . Chr(10), "*", "UTF-8")
+        LS_TestOutput("ServiceManagerTests failed: " . TEST_FAILURES . " failure(s)" . Chr(10))
         ExitApp(1)
     }
 
-    FileAppend("ServiceManagerTests passed" . Chr(10), "*", "UTF-8")
+    LS_TestOutput("ServiceManagerTests passed" . Chr(10))
     ExitApp(0)
 }
 
@@ -186,5 +187,5 @@ Assert(condition, message) {
 Fail(message) {
     global TEST_FAILURES
     TEST_FAILURES += 1
-    FileAppend(message . Chr(10), "*", "UTF-8")
+    LS_TestOutput(message . Chr(10))
 }

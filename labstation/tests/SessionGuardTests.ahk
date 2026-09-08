@@ -1,4 +1,5 @@
 #Requires AutoHotkey v2.0
+#Include TestSupport.ahk
 #Include ..\service\SessionGuard.ahk
 
 global TEST_FAILURES := 0
@@ -76,11 +77,11 @@ RunSessionGuardTests() {
     try DirDelete(TEST_ROOT, true)
 
     if (TEST_FAILURES > 0) {
-        FileAppend("SessionGuardTests failed: " . TEST_FAILURES . " failure(s)`n", "*", "UTF-8")
+        LS_TestOutput("SessionGuardTests failed: " . TEST_FAILURES . " failure(s)`n")
         ExitApp(1)
     }
 
-    FileAppend("SessionGuardTests passed`n", "*", "UTF-8")
+    LS_TestOutput("SessionGuardTests passed`n")
     ExitApp(0)
 }
 
@@ -224,5 +225,5 @@ Assert(condition, message) {
 Fail(message) {
     global TEST_FAILURES
     TEST_FAILURES += 1
-    FileAppend(message . "`n", "*", "UTF-8")
+    LS_TestOutput(message . "`n")
 }

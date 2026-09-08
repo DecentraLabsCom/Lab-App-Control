@@ -71,6 +71,11 @@ The `summary` object always contains:
 | `issues` | string array | Human-readable reasons why the station needs attention. |
 
 The `wake` object exposes `armedCount` and a `nicPower` array when available.
+Each NIC entry includes the interface description, operational state, the
+driver-neutral registry values when exposed, and `wolReady`. Disconnected
+physical adapters remain visible for diagnostics but do not fail station
+readiness; active adapters that are configured but absent from
+`powercfg /devicequery wake_armed` are listed in `nicNotArmed`.
 The `power` object exposes `sleepCompliant` and `hibernateCompliant` so the
 Gateway can determine whether the station remains safe to power down and wake.
 

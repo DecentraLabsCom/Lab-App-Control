@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.5.0] - 2026-09-08
+
+### Changed
+- Hardened WinRM readiness checks and Wake-on-LAN/NIC diagnostics across
+  Windows 10 and Windows 11, including disconnected and unsupported adapters.
+- Made command-line status output safe when the GUI executable has no usable
+  console handle.
+- Stabilized the AutoHotkey controller smoke test and CI test runner so GUI
+  startup is synchronized with the real application lifecycle and failures
+  propagate through process exit codes.
+
 ## [3.4.1] - 2026-09-08
 
 ### Fixed

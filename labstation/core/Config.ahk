@@ -4,7 +4,7 @@
 #Requires AutoHotkey v2.0
 
 if (!IsSet(LAB_STATION_VERSION)) {
-    global LAB_STATION_VERSION := "3.4.1"
+    global LAB_STATION_VERSION := "3.5.0"
 }
 
 if (!IsSet(LAB_STATION_SCHEMA_VERSION)) {
@@ -165,10 +165,33 @@ LS_IsHeadlessSession() {
     return cached
 }
 
+LS_WriteStdout(text) {
+    ; GUI-subsystem executables do not always inherit a usable stdout handle
+    ; when launched from Explorer, a service, or an IDE. FileAppend("*")
+    ; raises Win32 error 6 in that case, so keep the command path dialog-free.
+    try {
+        FileAppend(text, "*", "UTF-8")
+        return true
+    } catch {
+        ; When a console parent exists, attach to it and retry. This covers
+        ; direct invocations of the GUI executable from cmd or PowerShell.
+        try {
+            if DllCall("AttachConsole", "UInt", 0xFFFFFFFF, "Int") {
+                FileAppend(text, "*", "UTF-8")
+                return true
+            }
+        } catch {
+        }
+    }
+
+    OutputDebug("LabStation command output unavailable: stdout handle is not valid")
+    return false
+}
+
 LS_ShowMessage(message, title := "Lab Station", options := "OK") {
     if (LS_IsHeadlessSession()) {
         OutputDebug("LabStation headless result - " . title)
-        try FileAppend(message . "`n", "*", "UTF-8")
+        LS_WriteStdout(message . "`n")
         return ""
     }
     return MsgBox(message, title, options)

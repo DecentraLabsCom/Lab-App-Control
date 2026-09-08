@@ -128,14 +128,21 @@ class LS_Status {
         info["nicPower"] := []
         lookup := this.BuildDeviceLookup(info["armedDevices"])
         nonCompliant := []
+        notArmed := []
         for adapter in adapters {
             adapter["wakeArmed"] := this.AdapterAppearsInLookup(adapter["name"], lookup)
+                || this.AdapterAppearsInLookup(adapter["interfaceDescription"], lookup)
             info["nicPower"].Push(adapter)
             if (!adapter["wolReady"]) {
                 nonCompliant.Push(adapter)
             }
+            if (adapter["isOperational"] && !adapter["wakeArmed"]
+                && (!adapter.Has("queryFailed") || !adapter["queryFailed"])) {
+                notArmed.Push(adapter)
+            }
         }
         info["nicNonCompliant"] := nonCompliant
+        info["nicNotArmed"] := notArmed
         return info
     }
 
@@ -567,6 +574,8 @@ if (`$code -eq 0) {{ 'LABSTATION_USER_EXISTS' }}
             issues.Push("No wake-armed devices detected")
         if (data["wake"]["nicNonCompliant"].Length > 0)
             issues.Push("NIC power settings incomplete for: " . this.JoinAdapterNames(data["wake"]["nicNonCompliant"]))
+        if (data["wake"].Has("nicNotArmed") && data["wake"]["nicNotArmed"].Length > 0)
+            issues.Push("Active NICs not wake-armed: " . this.JoinAdapterNames(data["wake"]["nicNotArmed"]))
         if (!data["power"]["sleepCompliant"])
             issues.Push("Sleep timeout is not disabled")
         if (!data["power"]["hibernateCompliant"])

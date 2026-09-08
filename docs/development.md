@@ -38,6 +38,7 @@ smoke-test matrix:
 
 ```powershell
 $ahk = 'C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe'
+$env:AHK_EXE = $ahk
 $tests = @(
   'labstation\tests\WizardActionCallbacksTests.ahk',
   'labstation\tests\IntegrationContractTests.ahk',
@@ -53,7 +54,7 @@ $tests = @(
   'controller\tests\ArgumentParsingTests.ahk'
 )
 foreach ($test in $tests) {
-  & $ahk $test
+  .\scripts\run-ahk-test.ps1 $test
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 ```

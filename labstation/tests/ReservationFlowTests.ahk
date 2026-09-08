@@ -1,4 +1,5 @@
 #Requires AutoHotkey v2.0
+#Include TestSupport.ahk
 
 class LS_SessionGuard {
     static Run(options) {
@@ -100,11 +101,11 @@ RunReservationFlowTests() {
     try DirDelete(TEST_ROOT, true)
 
     if (TEST_FAILURES > 0) {
-        FileAppend("ReservationFlowTests failed: " . TEST_FAILURES . " failure(s)`n", "*", "UTF-8")
+        LS_TestOutput("ReservationFlowTests failed: " . TEST_FAILURES . " failure(s)`n")
         ExitApp(1)
     }
 
-    FileAppend("ReservationFlowTests passed`n", "*", "UTF-8")
+    LS_TestOutput("ReservationFlowTests passed`n")
     ExitApp(0)
 }
 
@@ -246,5 +247,5 @@ Assert(condition, message) {
 Fail(message) {
     global TEST_FAILURES
     TEST_FAILURES += 1
-    FileAppend(message . "`n", "*", "UTF-8")
+    LS_TestOutput(message . "`n")
 }

@@ -1,4 +1,5 @@
 #Requires AutoHotkey v2.0
+#Include TestSupport.ahk
 #Include ..\service\FmuExecutor.ahk
 
 global TEST_FAILURES := 0
@@ -171,11 +172,11 @@ RunFmuExecutorTests() {
     try DirDelete(TEST_ROOT, true)
 
     if (TEST_FAILURES > 0) {
-        FileAppend("FmuExecutorTests failed: " . TEST_FAILURES . " failure(s)" . Chr(10), "*", "UTF-8")
+        LS_TestOutput("FmuExecutorTests failed: " . TEST_FAILURES . " failure(s)" . Chr(10))
         ExitApp(1)
     }
 
-    FileAppend("FmuExecutorTests passed" . Chr(10), "*", "UTF-8")
+    LS_TestOutput("FmuExecutorTests passed" . Chr(10))
     ExitApp(0)
 }
 
@@ -422,5 +423,5 @@ Assert(condition, message) {
 Fail(message) {
     global TEST_FAILURES
     TEST_FAILURES += 1
-    FileAppend(message . Chr(10), "*", "UTF-8")
+    LS_TestOutput(message . Chr(10))
 }

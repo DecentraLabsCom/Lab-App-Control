@@ -90,9 +90,30 @@ class LS_PowerManager {
             if (!nic.Has("wolReady") || !nic["wolReady"]) {
                 label := nic.Has("name") ? nic["name"] : "NIC"
                 issues.Push("NIC not WoL ready: " . label)
+            } else if (nic.Has("isOperational") && nic["isOperational"]
+                && (!nic.Has("queryFailed") || !nic["queryFailed"])
+                && !this.IsNicWakeArmed(nic, wake["armedDevices"])) {
+                label := nic.Has("name") ? nic["name"] : "NIC"
+                issues.Push("NIC not wake-armed: " . label)
             }
         }
         return Map("ok", issues.Length = 0, "issues", issues, "wake", wake, "nics", nics)
+    }
+
+    static IsNicWakeArmed(nic, armedDevices) {
+        names := []
+        if (nic.Has("name"))
+            names.Push(nic["name"])
+        if (nic.Has("interfaceDescription") && nic["interfaceDescription"] != "")
+            names.Push(nic["interfaceDescription"])
+        for device in armedDevices {
+            normalizedDevice := StrLower(Trim(device))
+            for name in names {
+                if (normalizedDevice = StrLower(Trim(name)))
+                    return true
+            }
+        }
+        return false
     }
 
     static ReadinessSkipped() {

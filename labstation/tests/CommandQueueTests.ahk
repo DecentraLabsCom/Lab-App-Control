@@ -1,5 +1,6 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
+#Include TestSupport.ahk
 #Include ..\core\Config.ahk
 #Include ..\core\Logger.ahk
 #Include ..\core\Json.ahk
@@ -60,11 +61,11 @@ RunCommandQueueTests() {
     try DirDelete(TEST_ROOT, true)
 
     if (TEST_FAILURES > 0) {
-        FileAppend("CommandQueueTests failed: " . TEST_FAILURES . " failure(s)`n", "*", "UTF-8")
+        LS_TestOutput("CommandQueueTests failed: " . TEST_FAILURES . " failure(s)`n")
         ExitApp(1)
     }
 
-    FileAppend("CommandQueueTests passed`n", "*", "UTF-8")
+    LS_TestOutput("CommandQueueTests passed`n")
     ExitApp(0)
 }
 
@@ -228,5 +229,5 @@ CQ_Assert(condition, message) {
 CQ_Fail(message) {
     global TEST_FAILURES
     TEST_FAILURES += 1
-    FileAppend(message . "`n", "*", "UTF-8")
+    LS_TestOutput(message . "`n")
 }
