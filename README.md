@@ -107,7 +107,7 @@ profile keeps the station usable by local users as well.
 | --- | --- |
 | `setup` | Guided wizard that chains RemoteApp policy, Wake-on-LAN tweaks, WinRM setup, autostart registration, diagnostics export, and service prompt. |
 | `remoteapp` | Sets `fAllowUnlistedRemotePrograms` and related HKLM keys for RemoteApp. |
-| `wol` | Configures adapters and power plan settings required for Wake-on-LAN. |
+| `wol` | Configures adapters and power plan settings required for Wake-on-LAN. Follow the [Windows 10/11 desktop NIC checklist](docs/bios-wol-playbook.md). |
 | `winrm [configure\|status]` | Enables WinRM HTTPS on port 5986, exports the server certificate, opens the scoped HTTPS firewall rule, creates/updates `.\LabGatewaySvc`, and reports readiness. Trust the exported certificate on Lab Gateway and save the generated credentials in Lab Manager -> Lab Station Ops -> WinRM Credentials. |
 | `autostart [path]` | Registers AppControl (EXE or AHK) under HKLM\Run; optional custom path overrides bundle location. |
 | `launch-app-control [...]` | Pass-through launcher that proxies CLI args to the bundled controller. |
@@ -121,7 +121,7 @@ profile keeps the station usable by local users as well.
 | `recovery reboot-if-needed [--force] [--timeout=20]` | Evaluates RemoteApp/WoL/autostart + policy drift and only schedules a forced reboot when the host is unhealthy (or when `--force` is passed). |
 | `power shutdown [--delay=0] [--reason=text] [--no-force] [--skip-wake-check] [--repair-wake=<yes\|no>] [--require-wake]`<br>`power hibernate [...]` | Validates WoL readiness (optionally reapplying NIC settings) and schedules a graceful shutdown or hibernate so Lab Gateway can power off hosts at the end of a reservation without breaking WoL. See the [BIOS and WoL playbook](docs/bios-wol-playbook.md) for verification. |
 | `tray` | Starts the tray UI with shortcuts to logs, wizard, and manual exports. |
-| `energy audit [--json=path]` | Collects power plan, sleep/hibernate timers, NIC wake settings, and WoL readiness; optionally exports JSON for compliance. |
+| `energy audit [--json=path]` | Collects power plan, sleep/hibernate timers, NIC wake settings, and WoL readiness; optionally exports JSON for compliance. The [BIOS and WoL playbook](docs/bios-wol-playbook.md) explains the expected Windows 10/11 adapter values. |
 | `fmu-executor [start\|stop\|restart\|status]` | Supervises the Python FMU sidecar and reports its health. |
 | `gui` | Launches the Lab Station desktop control panel. |
 | `service install\|start\|stop\|status\|uninstall` | Manages the Scheduled Task (`LabStation\BackgroundService`) that runs the `service-loop`. |
