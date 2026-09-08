@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.4.0] - 2026-09-08
+
+### Fixed
+- WinRM listener readiness now reads the structured WSMan listener properties and recognizes `CertificateThumbprint` on Windows 10 and Windows 11, with a compatible textual fallback.
+
 ## [3.3.0] - 2026-09-01
 
 ### Fixed

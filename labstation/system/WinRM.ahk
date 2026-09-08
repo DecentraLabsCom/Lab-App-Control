@@ -50,11 +50,32 @@ class LS_WinRM {
 $ErrorActionPreference = 'Continue'
 $svc = Get-Service -Name WinRM -ErrorAction SilentlyContinue
 $listenerText = ''
+`$listenerObjects = @()
+try {
+    # Query the listener as a WSMan object first.  The object property is
+    # CertificateThumbprint on Windows client (including Windows 10 and 11),
+    # while older/localized winrm.exe text may expose a different label.
+    `$listenerObjects = @(Get-WSManInstance -ResourceURI 'winrm/config/listener' -Enumerate -ErrorAction Stop)
+} catch {}
 try { $listenerText = (& winrm enumerate winrm/config/listener 2>$null) -join [Environment]::NewLine } catch {}
-`$httpsListener = `$listenerText -match '(?im)Transport\s*=\s*HTTPS'
-`$httpsPort = `$listenerText -match '(?im)Port\s*=\s*5986'
-`$httpListener = `$listenerText -match '(?im)Transport\s*=\s*HTTP\s*$'
-`$certificateConfigured = `$listenerText -match '(?im)Certificate\s*=\s*\S+'
+`$httpsListeners = @(`$listenerObjects | Where-Object { [string]`$_.Transport -match '(?i)^HTTPS$' })
+`$httpsListener = `$httpsListeners.Count -gt 0
+`$httpsPort = @(`$httpsListeners | Where-Object { [string]`$_.Port -eq '5986' }).Count -gt 0
+`$certificateConfigured = @(`$httpsListeners | Where-Object {
+    -not [string]::IsNullOrWhiteSpace([string]`$_.CertificateThumbprint) -or
+    -not [string]::IsNullOrWhiteSpace([string]`$_.Certificate)
+}).Count -gt 0
+`$httpListener = @(`$listenerObjects | Where-Object { [string]`$_.Transport -match '(?i)^HTTP$' }).Count -gt 0
+# Fallback for systems where the WSMan PowerShell provider is unavailable.
+# Both Certificate and CertificateThumbprint have existed in winrm.exe text.
+if (-not `$httpsListener)
+    `$httpsListener = `$listenerText -match '(?im)Transport\s*=\s*HTTPS'
+if (-not `$httpsPort)
+    `$httpsPort = `$listenerText -match '(?im)Port\s*=\s*5986'
+if (-not `$httpListener)
+    `$httpListener = `$listenerText -match '(?im)Transport\s*=\s*HTTP\s*$'
+if (-not `$certificateConfigured)
+    `$certificateConfigured = `$listenerText -match '(?im)(?:CertificateThumbprint|Certificate)\s*=\s*\S+'
 `$firewall = `$false
 try {
     $rule = Get-NetFirewallRule -Name 'WINRM-HTTPS-In-TCP*','LabStation-WinRM-HTTPS' -ErrorAction SilentlyContinue |
