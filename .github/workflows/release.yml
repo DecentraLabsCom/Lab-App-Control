@@ -397,32 +397,60 @@ jobs:
             Copy-Item -Path $source -Destination (Join-Path $inputDir $name) -Force
           }
 
-      - name: Upload unsigned executables to SignPath
-        id: signpath-upload
-        uses: actions/upload-artifact@v7
-        with:
-          name: Lab-Station-signing-input
-          path: signing-input
-          if-no-files-found: error
-
       - name: Validate SignPath configuration
         shell: powershell
         run: |
-          $policySlug = "${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}".Trim()
+          $policySlug = ([string]$env:SIGNPATH_SIGNING_POLICY_SLUG).Trim()
           if ([string]::IsNullOrWhiteSpace($policySlug)) {
             throw 'Repository variable SIGNPATH_SIGNING_POLICY_SLUG is missing'
           }
+          if ([string]::IsNullOrWhiteSpace($env:SIGNPATH_API_TOKEN)) {
+            throw 'Repository secret SIGNPATH_API_TOKEN is missing'
+          }
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
 
-      - name: Sign executables with SignPath
-        uses: signpath/github-action-submit-signing-request@v2
-        with:
-          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-          organization-id: '50ce8c7b-c57f-406f-82bf-8b067125ed55'
-          project-slug: 'Lab_Station'
-          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
-          github-artifact-id: ${{ steps.signpath-upload.outputs.artifact-id }}
-          wait-for-completion: true
-          output-artifact-directory: signed-artifact
+      - name: Install SignPath PowerShell module
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Install-Module -Name SignPath -Repository PSGallery -Scope CurrentUser -Force -AllowClobber
+          Import-Module SignPath -Force
+
+      - name: Sign executables with SignPath PowerShell integration
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Import-Module SignPath -Force
+
+          $inputDir = Join-Path $PWD 'signing-input'
+          $inputArtifact = Join-Path $PWD 'Lab-Station-signing-input.zip'
+          $signedArtifact = Join-Path $PWD 'Lab-Station-signing-output.zip'
+          $signedDir = Join-Path $PWD 'signed-artifact'
+          $files = Get-ChildItem -LiteralPath $inputDir -File
+
+          if ($files.Count -ne 3) {
+            throw "Expected 3 executables in $inputDir, found $($files.Count)"
+          }
+
+          Compress-Archive -Path $files.FullName -DestinationPath $inputArtifact -Force
+          New-Item -ItemType Directory -Force -Path $signedDir | Out-Null
+
+          Submit-SigningRequest `
+            -InputArtifactPath $inputArtifact `
+            -ApiToken $env:SIGNPATH_API_TOKEN `
+            -OrganizationId '50ce8c7b-c57f-406f-82bf-8b067125ed55' `
+            -ProjectSlug 'Lab_Station' `
+            -SigningPolicySlug $env:SIGNPATH_SIGNING_POLICY_SLUG `
+            -OutputArtifactPath $signedArtifact `
+            -WaitForCompletion `
+            -Force
+
+          Expand-Archive -LiteralPath $signedArtifact -DestinationPath $signedDir -Force
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
 
       - name: Replace release files with signed executables
         shell: powershell
