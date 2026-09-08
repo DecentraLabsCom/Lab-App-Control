@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.4.1] - 2026-09-08
+
+### Fixed
+- Fixed the WinRM status fallback PowerShell syntax so listener checks execute correctly when the structured WSMan query is unavailable.
+
 ## [3.4.0] - 2026-09-08
 
 ### Fixed

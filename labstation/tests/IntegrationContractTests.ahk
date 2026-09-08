@@ -46,6 +46,12 @@ try {
     AssertContains("winrm", configureScript, "5986", &errors)
     AssertContains("winrm", configureScript, "AllowUnencrypted", &errors)
     AssertContains("winrm", configureScript, "Certificate", &errors)
+    AssertContains("winrm", winrmSource, "Get-WSManInstance -ResourceURI 'winrm/config/listener'", &errors)
+    AssertContains("winrm", winrmSource, "CertificateThumbprint", &errors)
+    AssertContains("winrm", winrmSource, "if (-not `$httpsListener) {", &errors)
+    AssertContains("winrm", winrmSource, "if (-not `$httpsPort) {", &errors)
+    AssertContains("winrm", winrmSource, "if (-not `$httpListener) {", &errors)
+    AssertContains("winrm", winrmSource, "if (-not `$certificateConfigured) {", &errors)
     AssertContains("winrm", configureScript, "LabStation-WinRM-HTTPS", &errors)
     AssertNotContains("winrm", configureScript, "localport=5985", &errors)
 } catch as e {

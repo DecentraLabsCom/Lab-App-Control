@@ -68,14 +68,18 @@ try { $listenerText = (& winrm enumerate winrm/config/listener 2>$null) -join [E
 `$httpListener = @(`$listenerObjects | Where-Object { [string]`$_.Transport -match '(?i)^HTTP$' }).Count -gt 0
 # Fallback for systems where the WSMan PowerShell provider is unavailable.
 # Both Certificate and CertificateThumbprint have existed in winrm.exe text.
-if (-not `$httpsListener)
+if (-not `$httpsListener) {
     `$httpsListener = `$listenerText -match '(?im)Transport\s*=\s*HTTPS'
-if (-not `$httpsPort)
+}
+if (-not `$httpsPort) {
     `$httpsPort = `$listenerText -match '(?im)Port\s*=\s*5986'
-if (-not `$httpListener)
+}
+if (-not `$httpListener) {
     `$httpListener = `$listenerText -match '(?im)Transport\s*=\s*HTTP\s*$'
-if (-not `$certificateConfigured)
+}
+if (-not `$certificateConfigured) {
     `$certificateConfigured = `$listenerText -match '(?im)(?:CertificateThumbprint|Certificate)\s*=\s*\S+'
+}
 `$firewall = `$false
 try {
     $rule = Get-NetFirewallRule -Name 'WINRM-HTTPS-In-TCP*','LabStation-WinRM-HTTPS' -ErrorAction SilentlyContinue |
