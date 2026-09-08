@@ -347,6 +347,16 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
+          function Stop-ProcessesForPath($exePath) {
+            $fullPath = (Resolve-Path $exePath).Path
+            $processName = Split-Path $fullPath -Leaf
+            Get-CimInstance Win32_Process -Filter "Name='$processName'" -ErrorAction SilentlyContinue |
+              Where-Object { $_.ExecutablePath -eq $fullPath } |
+              ForEach-Object {
+                Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+              }
+          }
+
           function Assert-EmbeddedScript($exePath) {
             if (-not (Test-Path $exePath)) {
               throw "Executable missing: $exePath"
@@ -358,11 +368,17 @@ jobs:
             if (Test-Path $stdoutPath) { Remove-Item $stdoutPath -Force }
             if (Test-Path $stderrPath) { Remove-Item $stderrPath -Force }
 
-            $proc = Start-Process -FilePath $exePath -ArgumentList '/ErrorStdOut' -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
             try {
-              Wait-Process -Id $proc.Id -Timeout 8 -ErrorAction Stop
-            } catch {
-              Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+              $proc = Start-Process -FilePath $exePath -ArgumentList '/ErrorStdOut' -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+              try {
+                Wait-Process -Id $proc.Id -Timeout 8 -ErrorAction Stop
+              } catch {
+              }
+            } finally {
+              if ($proc) {
+                Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+              }
+              Stop-ProcessesForPath $exePath
             }
 
             $stderr = ''
@@ -377,6 +393,8 @@ jobs:
 
           Assert-EmbeddedScript (Join-Path $PWD 'dist/LabStation.exe')
           Assert-EmbeddedScript (Join-Path $PWD 'dist/LabStationPanel.exe')
+          Stop-ProcessesForPath (Join-Path $PWD 'dist/LabStation.exe')
+          Stop-ProcessesForPath (Join-Path $PWD 'dist/LabStationPanel.exe')
 
       - name: Prepare executables for SignPath
         shell: powershell
